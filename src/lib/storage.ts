@@ -1,0 +1,126 @@
+import { useEffect, useState, useCallback } from "react";
+
+export type Affirmation = {
+  id: string;
+  text: string;
+  tag: string;
+  count: number;
+  createdAt: number;
+};
+
+export type Goal = {
+  id: string;
+  text: string;
+  done: boolean;
+  createdAt: number;
+  doneAt?: number;
+};
+
+export type FocusLog = {
+  id: string;
+  date: string; // YYYY-MM-DD
+  tag: string;
+  affirmationId?: string;
+  count: number;
+  durationSec: number;
+  timestamp: number;
+};
+
+export type BreathMode = "box" | "478" | "custom" | "off";
+
+export type Settings = {
+  theme: "light" | "dark";
+  customBg?: string; // dataURL
+  showBreath: boolean;
+  showCounter: boolean;
+  sound: boolean;
+  vibration: boolean;
+  breathMode: BreathMode;
+  customBreath: { inhale: number; hold1: number; exhale: number; hold2: number };
+  autoCountInterval: number; // 0 = off, otherwise seconds
+};
+
+const KEYS = {
+  affirmations: "gg_affirmations",
+  goals: "gg_goals",
+  logs: "gg_focus_logs",
+  settings: "gg_settings",
+  tags: "gg_tags",
+};
+
+export const DEFAULT_TAGS = ["爱情", "财富", "健康", "事业", "自我概念", "人际关系"];
+
+export const DEFAULT_SETTINGS: Settings = {
+  theme: "light",
+  showBreath: true,
+  showCounter: true,
+  sound: false,
+  vibration: false,
+  breathMode: "box",
+  customBreath: { inhale: 4, hold1: 4, exhale: 4, hold2: 4 },
+  autoCountInterval: 0,
+};
+
+function read<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const v = localStorage.getItem(key);
+    return v ? (JSON.parse(v) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function write<T>(key: string, value: T) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+export function useLocal<T>(key: string, initial: T): [T, (v: T | ((p: T) => T)) => void] {
+  const [state, setState] = useState<T>(initial);
+  useEffect(() => {
+    setState(read<T>(key, initial));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  const set = useCallback(
+    (v: T | ((p: T) => T)) => {
+      setState((prev) => {
+        const next = typeof v === "function" ? (v as (p: T) => T)(prev) : v;
+        write(key, next);
+        return next;
+      });
+    },
+    [key],
+  );
+  return [state, set];
+}
+
+export const storage = {
+  KEYS,
+  exportAll() {
+    const data: Record<string, unknown> = {};
+    Object.values(KEYS).forEach((k) => {
+      const v = localStorage.getItem(k);
+      if (v) data[k] = JSON.parse(v);
+    });
+    return data;
+  },
+  importAll(data: Record<string, unknown>) {
+    Object.entries(data).forEach(([k, v]) => {
+      if (Object.values(KEYS).includes(k)) {
+        localStorage.setItem(k, JSON.stringify(v));
+      }
+    });
+  },
+  clearAll() {
+    Object.values(KEYS).forEach((k) => localStorage.removeItem(k));
+  },
+};
+
+export function uid() {
+  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+}
+
+export function todayKey(d = new Date()) {
+  return d.toISOString().slice(0, 10);
+}
