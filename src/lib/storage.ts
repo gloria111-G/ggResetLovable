@@ -34,10 +34,13 @@ export type Settings = {
   showBreath: boolean;
   showCounter: boolean;
   sound: boolean;
-  vibration: boolean;
   breathMode: BreathMode;
   customBreath: { inhale: number; hold1: number; exhale: number; hold2: number };
-  autoCountInterval: number; // 0 = off, otherwise seconds
+  autoCountEnabled: boolean; // master toggle in settings
+  autoCountInterval: number; // seconds, default 1
+  counterMode: "today" | "total"; // counter display mode
+  keyboardCounter: boolean; // enter/space to +1 on desktop
+  focusDuration: number; // last selected countdown seconds
 };
 
 const KEYS = {
@@ -55,10 +58,13 @@ export const DEFAULT_SETTINGS: Settings = {
   showBreath: true,
   showCounter: true,
   sound: false,
-  vibration: false,
   breathMode: "box",
   customBreath: { inhale: 4, hold1: 4, exhale: 4, hold2: 4 },
-  autoCountInterval: 0,
+  autoCountEnabled: false,
+  autoCountInterval: 1,
+  counterMode: "today",
+  keyboardCounter: false,
+  focusDuration: 300,
 };
 
 function read<T>(key: string, fallback: T): T {

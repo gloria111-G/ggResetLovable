@@ -50,7 +50,5 @@ export function playFeedback(settings: Settings) {
       o.stop(ctx.currentTime + 0.2);
     } catch {}
   }
-  if (settings.vibration && "vibrate" in navigator) {
-    navigator.vibrate(30);
-  }
 }
+

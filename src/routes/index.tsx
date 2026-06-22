@@ -20,22 +20,19 @@ function Home() {
         <div className="text-center mb-14">
           <p className="text-xs tracking-[0.4em] opacity-60 mb-3">REST · RESET · RECEIVE</p>
           <h1 className="font-display text-6xl md:text-7xl tracking-tight">GG RESET</h1>
-          <p className="mt-4 text-sm opacity-70 max-w-md mx-auto">
-            一个安静的角落，用呼吸、肯定语与显化，让神经系统回到松弛的轨道。
-          </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 md:gap-6 w-full max-w-2xl">
+        <div className="grid grid-cols-2 gap-3 md:gap-6 w-full max-w-2xl">
           {tiles.map(({ to, label, sub, Icon }) => (
             <Link
               key={to}
               to={to}
-              className="glass glass-hover rounded-3xl p-8 md:p-10 flex flex-col items-start justify-between aspect-[4/3] group"
+              className="glass glass-hover rounded-3xl p-5 md:p-10 flex flex-col items-start justify-between aspect-square md:aspect-[4/3] group"
             >
-              <Icon className="size-7 opacity-80 group-hover:scale-110 transition-transform" />
+              <Icon className="size-6 md:size-7 opacity-80 group-hover:scale-110 transition-transform" />
               <div>
-                <p className="text-xs tracking-widest opacity-50 mb-1">{sub}</p>
-                <p className="text-xl md:text-2xl font-display">{label}</p>
+                <p className="text-[10px] md:text-xs tracking-widest opacity-50 mb-1">{sub}</p>
+                <p className="text-lg md:text-2xl font-display">{label}</p>
               </div>
             </Link>
           ))}
