@@ -13,29 +13,27 @@ export function AppShell({
 }) {
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="px-6 pt-6 pb-2 flex items-center justify-between max-w-5xl mx-auto w-full">
+      <header className="px-4 md:px-6 pt-6 pb-2 flex items-center justify-between max-w-5xl mx-auto w-full gap-3">
         {back ? (
           <Link
             to="/"
-            className="glass glass-hover rounded-full px-4 py-2 text-sm flex items-center gap-2"
+            className="glass glass-hover rounded-full px-3 py-2 text-sm flex items-center gap-1 shrink-0"
           >
-            <ArrowLeft className="size-4" /> 返回
+            <ArrowLeft className="size-4" />
           </Link>
         ) : (
           <div />
         )}
-        <Link to="/" className="font-display text-xl tracking-wide opacity-80">
-          GG RESET
+        <Link
+          to="/"
+          className="font-display tracking-wide text-base md:text-xl text-center flex-1 truncate"
+        >
+          GG RESET{title ? ` · ${title}` : ""}
         </Link>
-        <div className="w-20" />
+        <div className="w-10 shrink-0" />
       </header>
 
-      <main className="flex-1 px-6 py-6 max-w-5xl mx-auto w-full">
-        {title && (
-          <h1 className="text-3xl md:text-4xl font-display mb-8 text-center">{title}</h1>
-        )}
-        {children}
-      </main>
+      <main className="flex-1 px-4 md:px-6 py-6 max-w-5xl mx-auto w-full">{children}</main>
 
       <Disclaimer />
     </div>

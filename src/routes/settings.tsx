@@ -1,9 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { AppShell, GlassCard } from "@/components/AppShell";
 import { useApp } from "@/lib/app-context";
 import { storage } from "@/lib/storage";
-import { Download, Upload, Sun, Moon, Image as ImageIcon, Coffee, Trash2 } from "lucide-react";
+import {
+  Download,
+  Upload,
+  Sun,
+  Moon,
+  Image as ImageIcon,
+  Coffee,
+  Trash2,
+  X,
+} from "lucide-react";
+import donateWechat from "@/assets/donate-wechat.jpg";
+import donateAlipay from "@/assets/donate-alipay.jpg";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "设置 · GG RESET" }] }),
@@ -14,6 +25,7 @@ function SettingsPage() {
   const { settings, setSettings } = useApp();
   const fileRef = useRef<HTMLInputElement>(null);
   const bgRef = useRef<HTMLInputElement>(null);
+  const [showDonate, setShowDonate] = useState(false);
 
   function exportData() {
     const data = storage.exportAll();
@@ -70,7 +82,7 @@ function SettingsPage() {
               <Moon className="size-4" /> 夜间
             </button>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => bgRef.current?.click()}
               className="glass glass-hover rounded-2xl px-4 py-3 text-sm flex items-center gap-2 flex-1"
@@ -113,10 +125,51 @@ function SettingsPage() {
             onChange={(v) => setSettings((s) => ({ ...s, sound: v }))}
           />
           <Toggle
-            label="震动提示"
-            value={settings.vibration}
-            onChange={(v) => setSettings((s) => ({ ...s, vibration: v }))}
+            label="键盘计数（回车/空格 +1）"
+            value={settings.keyboardCounter}
+            onChange={(v) => setSettings((s) => ({ ...s, keyboardCounter: v }))}
           />
+          <Toggle
+            label="启用自动计数功能"
+            value={settings.autoCountEnabled}
+            onChange={(v) => setSettings((s) => ({ ...s, autoCountEnabled: v }))}
+          />
+
+          {settings.autoCountEnabled && (
+            <div className="mt-2 mb-3">
+              <p className="text-xs opacity-70 mb-2">
+                默认自动计数间隔：每 {settings.autoCountInterval} 秒 +1
+              </p>
+              <input
+                type="range"
+                min={0.5}
+                max={10}
+                step={0.5}
+                value={settings.autoCountInterval}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, autoCountInterval: Number(e.target.value) }))
+                }
+                className="w-full"
+              />
+            </div>
+          )}
+
+          <div className="mt-4">
+            <p className="text-sm mb-2">计数器显示</p>
+            <div className="flex gap-2">
+              {(["today", "total"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setSettings((s) => ({ ...s, counterMode: m }))}
+                  className={`flex-1 rounded-full px-3 py-2 text-xs ${
+                    settings.counterMode === m ? "glass-strong" : "glass"
+                  }`}
+                >
+                  {m === "today" ? "今日计数" : "累计计数"}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="mt-4">
             <p className="text-sm mb-2">呼吸法</p>
@@ -129,7 +182,13 @@ function SettingsPage() {
                     settings.breathMode === m ? "glass-strong" : "glass"
                   }`}
                 >
-                  {m === "box" ? "箱式 4-4-4-4" : m === "478" ? "4-7-8" : m === "custom" ? "自定义" : "关闭"}
+                  {m === "box"
+                    ? "箱式 4-4-4-4"
+                    : m === "478"
+                      ? "4-7-8"
+                      : m === "custom"
+                        ? "自定义"
+                        : "关闭"}
                 </button>
               ))}
             </div>
@@ -157,22 +216,6 @@ function SettingsPage() {
                 ))}
               </div>
             )}
-          </div>
-
-          <div className="mt-4">
-            <p className="text-sm mb-2">
-              自动计数间隔 ({settings.autoCountInterval === 0 ? "关闭" : `每 ${settings.autoCountInterval} 秒`})
-            </p>
-            <input
-              type="range"
-              min={0}
-              max={10}
-              value={settings.autoCountInterval}
-              onChange={(e) =>
-                setSettings((s) => ({ ...s, autoCountInterval: Number(e.target.value) }))
-              }
-              className="w-full"
-            />
           </div>
         </GlassCard>
 
@@ -210,25 +253,50 @@ function SettingsPage() {
               onChange={(e) => e.target.files?.[0] && importData(e.target.files[0])}
             />
           </div>
-          <p className="text-xs opacity-60 mt-3">
-            所有数据存储在你的浏览器本地，从不上传。
-          </p>
+          <p className="text-xs opacity-60 mt-3">所有数据存储在你的浏览器本地，从不上传。</p>
         </GlassCard>
 
         <GlassCard className="text-center">
           <Coffee className="size-6 mx-auto mb-2 opacity-70" />
           <p className="font-display text-lg mb-1">如果喜欢 GG reset</p>
           <p className="text-xs opacity-60 mb-4">可以请作者喝杯咖啡 ☕</p>
-          <a
-            href="https://www.buymeacoffee.com/"
-            target="_blank"
-            rel="noreferrer"
+          <button
+            onClick={() => setShowDonate(true)}
             className="inline-flex glass glass-hover rounded-full px-5 py-2.5 text-sm items-center gap-2"
           >
             <Coffee className="size-4" /> 打赏作者
-          </a>
+          </button>
         </GlassCard>
       </div>
+
+      {showDonate && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4"
+          onClick={() => setShowDonate(false)}
+        >
+          <div
+            className="glass-strong rounded-3xl p-6 max-w-2xl w-full relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowDonate(false)}
+              className="absolute top-4 right-4 glass rounded-full size-9 flex items-center justify-center"
+            >
+              <X className="size-4" />
+            </button>
+            <p className="font-display text-xl text-center mb-4">打赏作者</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-2xl overflow-hidden">
+                <img src={donateWechat} alt="微信支付" className="w-full h-auto" />
+              </div>
+              <div className="rounded-2xl overflow-hidden">
+                <img src={donateAlipay} alt="支付宝" className="w-full h-auto" />
+              </div>
+            </div>
+            <p className="text-center text-xs opacity-70 mt-4">感谢您的支持</p>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
