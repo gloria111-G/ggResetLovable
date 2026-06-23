@@ -10,7 +10,10 @@ type Ctx = {
 const C = createContext<Ctx | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useLocal<Settings>("gg_settings", DEFAULT_SETTINGS);
+  const [rawSettings, setRaw] = useLocal<Settings>("gg_settings", DEFAULT_SETTINGS);
+  // Merge stored settings with defaults so newly-added fields always have values
+  const settings: Settings = { ...DEFAULT_SETTINGS, ...rawSettings };
+  const setSettings = setRaw;
 
   useEffect(() => {
     const root = document.documentElement;
@@ -19,6 +22,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [settings.theme]);
 
   const bg = settings.customBg || (settings.theme === "dark" ? oceanBgDark : oceanBg);
+
+
 
   return (
     <C.Provider value={{ settings, setSettings }}>
