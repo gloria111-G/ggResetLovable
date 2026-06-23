@@ -217,6 +217,39 @@ function SettingsPage() {
               </div>
             )}
           </div>
+
+          <div className="mt-4">
+            <p className="text-sm mb-2">白噪音（开始专注后自动播放）</p>
+            <div className="flex flex-wrap gap-2">
+              {(["off", "waves", "fire", "rain"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setSettings((s) => ({ ...s, whiteNoise: m }))}
+                  className={`rounded-full px-3 py-1.5 text-xs ${
+                    settings.whiteNoise === m ? "glass-strong" : "glass"
+                  }`}
+                >
+                  {m === "off" ? "关闭" : m === "waves" ? "🌊 海浪" : m === "fire" ? "🔥 篝火" : "🌧 下雨"}
+                </button>
+              ))}
+            </div>
+            {settings.whiteNoise !== "off" && (
+              <div className="mt-3">
+                <p className="text-xs opacity-70 mb-1">音量 {Math.round(settings.whiteNoiseVolume * 100)}%</p>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={settings.whiteNoiseVolume}
+                  onChange={(e) =>
+                    setSettings((s) => ({ ...s, whiteNoiseVolume: Number(e.target.value) }))
+                  }
+                  className="w-full"
+                />
+              </div>
+            )}
+          </div>
         </GlassCard>
 
         <GlassCard>
