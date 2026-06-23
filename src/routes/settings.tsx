@@ -308,22 +308,25 @@ function SettingsPage() {
           onClick={() => setShowDonate(false)}
         >
           <div
-            className="glass-strong rounded-3xl p-6 max-w-2xl w-full relative"
+            className="glass-strong rounded-3xl p-5 w-full max-w-sm relative"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setShowDonate(false)}
-              className="absolute top-4 right-4 glass rounded-full size-9 flex items-center justify-center"
+              className="absolute -top-3 -right-3 glass-strong rounded-full size-9 flex items-center justify-center shadow-md"
+              aria-label="关闭"
             >
               <X className="size-4" />
             </button>
-            <p className="font-display text-xl text-center mb-4">打赏作者</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="rounded-2xl overflow-hidden">
-                <img src={donateWechat} alt="微信支付" className="w-full h-auto" />
+            <p className="font-display text-lg text-center mb-4">打赏作者</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl overflow-hidden glass p-2 flex flex-col items-center">
+                <img src={donateWechat} alt="微信支付" className="w-full h-auto rounded-xl" />
+                <p className="text-[10px] opacity-70 mt-1.5">微信</p>
               </div>
-              <div className="rounded-2xl overflow-hidden">
-                <img src={donateAlipay} alt="支付宝" className="w-full h-auto" />
+              <div className="rounded-2xl overflow-hidden glass p-2 flex flex-col items-center">
+                <img src={donateAlipay} alt="支付宝" className="w-full h-auto rounded-xl" />
+                <p className="text-[10px] opacity-70 mt-1.5">支付宝</p>
               </div>
             </div>
             <p className="text-center text-xs opacity-70 mt-4">感谢您的支持</p>
