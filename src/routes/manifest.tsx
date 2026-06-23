@@ -89,7 +89,7 @@ function ManifestPage() {
       <div className="grid gap-6">
         <GlassCard>
           <h2 className="font-display text-2xl mb-1">显化列表 · 你会得到：</h2>
-          <p className="text-xs opacity-60 mb-4">轻轻打勾，让它变成现实。</p>
+          <p className="text-xs opacity-60 mb-4">轻轻写下，已经完成。</p>
 
           <div className="flex gap-2 mb-5">
             <input

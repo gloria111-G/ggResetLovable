@@ -217,6 +217,39 @@ function SettingsPage() {
               </div>
             )}
           </div>
+
+          <div className="mt-4">
+            <p className="text-sm mb-2">白噪音（开始专注后自动播放）</p>
+            <div className="flex flex-wrap gap-2">
+              {(["off", "waves", "fire", "rain"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setSettings((s) => ({ ...s, whiteNoise: m }))}
+                  className={`rounded-full px-3 py-1.5 text-xs ${
+                    settings.whiteNoise === m ? "glass-strong" : "glass"
+                  }`}
+                >
+                  {m === "off" ? "关闭" : m === "waves" ? "🌊 海浪" : m === "fire" ? "🔥 篝火" : "🌧 下雨"}
+                </button>
+              ))}
+            </div>
+            {settings.whiteNoise !== "off" && (
+              <div className="mt-3">
+                <p className="text-xs opacity-70 mb-1">音量 {Math.round(settings.whiteNoiseVolume * 100)}%</p>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={settings.whiteNoiseVolume}
+                  onChange={(e) =>
+                    setSettings((s) => ({ ...s, whiteNoiseVolume: Number(e.target.value) }))
+                  }
+                  className="w-full"
+                />
+              </div>
+            )}
+          </div>
         </GlassCard>
 
         <GlassCard>
@@ -275,22 +308,25 @@ function SettingsPage() {
           onClick={() => setShowDonate(false)}
         >
           <div
-            className="glass-strong rounded-3xl p-6 max-w-2xl w-full relative"
+            className="glass-strong rounded-3xl p-5 w-full max-w-sm relative"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setShowDonate(false)}
-              className="absolute top-4 right-4 glass rounded-full size-9 flex items-center justify-center"
+              className="absolute -top-3 -right-3 glass-strong rounded-full size-9 flex items-center justify-center shadow-md"
+              aria-label="关闭"
             >
               <X className="size-4" />
             </button>
-            <p className="font-display text-xl text-center mb-4">打赏作者</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="rounded-2xl overflow-hidden">
-                <img src={donateWechat} alt="微信支付" className="w-full h-auto" />
+            <p className="font-display text-lg text-center mb-4">打赏作者</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl overflow-hidden glass p-2 flex flex-col items-center">
+                <img src={donateWechat} alt="微信支付" className="w-full h-auto rounded-xl" />
+                <p className="text-[10px] opacity-70 mt-1.5">微信</p>
               </div>
-              <div className="rounded-2xl overflow-hidden">
-                <img src={donateAlipay} alt="支付宝" className="w-full h-auto" />
+              <div className="rounded-2xl overflow-hidden glass p-2 flex flex-col items-center">
+                <img src={donateAlipay} alt="支付宝" className="w-full h-auto rounded-xl" />
+                <p className="text-[10px] opacity-70 mt-1.5">支付宝</p>
               </div>
             </div>
             <p className="text-center text-xs opacity-70 mt-4">感谢您的支持</p>

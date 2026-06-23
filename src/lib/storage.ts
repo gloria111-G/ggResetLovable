@@ -28,19 +28,23 @@ export type FocusLog = {
 
 export type BreathMode = "box" | "478" | "custom" | "off";
 
+export type WhiteNoise = "off" | "waves" | "fire" | "rain";
+
 export type Settings = {
   theme: "light" | "dark";
-  customBg?: string; // dataURL
+  customBg?: string;
   showBreath: boolean;
   showCounter: boolean;
   sound: boolean;
   breathMode: BreathMode;
   customBreath: { inhale: number; hold1: number; exhale: number; hold2: number };
-  autoCountEnabled: boolean; // master toggle in settings
-  autoCountInterval: number; // seconds, default 1
-  counterMode: "today" | "total"; // counter display mode
-  keyboardCounter: boolean; // enter/space to +1 on desktop
-  focusDuration: number; // last selected countdown seconds
+  autoCountEnabled: boolean;
+  autoCountInterval: number;
+  counterMode: "today" | "total";
+  keyboardCounter: boolean;
+  focusDuration: number;
+  whiteNoise: WhiteNoise;
+  whiteNoiseVolume: number; // 0-1
 };
 
 const KEYS = {
@@ -50,6 +54,8 @@ const KEYS = {
   settings: "gg_settings",
   tags: "gg_tags",
 };
+
+export const ACTIVE_SESSION_KEY = "gg_active_session";
 
 export const DEFAULT_TAGS = ["爱情", "财富", "健康", "事业", "自我概念", "人际关系"];
 
@@ -65,6 +71,8 @@ export const DEFAULT_SETTINGS: Settings = {
   counterMode: "today",
   keyboardCounter: false,
   focusDuration: 300,
+  whiteNoise: "off",
+  whiteNoiseVolume: 0.5,
 };
 
 function read<T>(key: string, fallback: T): T {
