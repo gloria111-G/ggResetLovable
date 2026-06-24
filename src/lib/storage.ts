@@ -109,6 +109,7 @@ export const DEFAULT_SETTINGS: Settings = {
   focusDuration: 300,
   whiteNoise: "off",
   whiteNoiseVolume: 0.5,
+  timerMode: "countdown",
 };
 
 function read<T>(key: string, fallback: T): T {
