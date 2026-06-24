@@ -168,9 +168,8 @@ function ManifestPage() {
                 key={t}
                 onClick={() => setAffTag(t)}
                 className={`rounded-full px-3 py-1.5 text-xs ${
-                  affTag === t ? "glass-strong" : "glass"
+                  affTag === t ? "glass-strong selected-strong" : "glass"
                 }`}
-              >
                 #{t}
               </button>
             ))}
