@@ -170,6 +170,7 @@ function ManifestPage() {
                 className={`rounded-full px-3 py-1.5 text-xs ${
                   affTag === t ? "glass-strong selected-strong" : "glass"
                 }`}
+              >
                 #{t}
               </button>
             ))}
