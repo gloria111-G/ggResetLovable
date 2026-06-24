@@ -5,10 +5,10 @@ import { WheelDuration } from "@/components/WheelDuration";
 import { useApp, playFeedback } from "@/lib/app-context";
 import {
   useLocal,
+  upsertDailyLog,
   type Affirmation,
   type FocusLog,
   DEFAULT_TAGS,
-  uid,
   todayKey,
   ACTIVE_SESSION_KEY,
 } from "@/lib/storage";
@@ -22,14 +22,14 @@ export const Route = createFileRoute("/focus")({
 
 type ActiveSession = {
   startedAt: number; // ms (last resume)
-  duration: number; // total seconds
+  duration: number; // total seconds (countdown only)
   elapsedBefore: number; // accumulated seconds before this resume
   count: number;
   running: boolean;
   mode: "random" | "single";
   tag: string;
   affId?: string;
-  pausedAt?: number;
+  timerMode: "countdown" | "stopwatch";
 };
 
 function loadSession(): ActiveSession | null {
@@ -47,8 +47,14 @@ function saveSession(s: ActiveSession | null) {
   else localStorage.removeItem(ACTIVE_SESSION_KEY);
 }
 
+function selCls(active: boolean) {
+  return active ? "glass-strong selected-strong" : "glass";
+}
+
 function FocusPage() {
   const { settings, setSettings } = useApp();
+  const isStopwatch = settings.timerMode === "stopwatch";
+
   const [affirmations, setAffs] = useLocal<Affirmation[]>("gg_affirmations", []);
   const [logs, setLogs] = useLocal<FocusLog[]>("gg_focus_logs", []);
 
@@ -84,51 +90,53 @@ function FocusPage() {
   const startedAtRef = useRef<number>(initial.current?.startedAt ?? Date.now());
   const elapsedBeforeRef = useRef<number>(initial.current?.elapsedBefore ?? 0);
 
-  // Display remaining (updated by interval, not source of truth)
+  // Display computed value (re-renders driven by forceTick / running state)
   const computeElapsed = useCallback(() => {
     if (!running) return elapsedBeforeRef.current;
     return elapsedBeforeRef.current + (Date.now() - startedAtRef.current) / 1000;
   }, [running]);
 
   const [, forceTick] = useState(0);
-  const remaining = Math.max(0, Math.ceil(duration - computeElapsed()));
+  const elapsedNow = computeElapsed();
+  const remaining = Math.max(0, Math.ceil(duration - elapsedNow));
+  const elapsedDisplay = Math.floor(elapsedNow);
 
-  // Sync duration to settings
+  // Reset session if user switches timer mode in settings (real-time)
+  const prevTimerModeRef = useRef(settings.timerMode);
+  useEffect(() => {
+    if (prevTimerModeRef.current !== settings.timerMode) {
+      prevTimerModeRef.current = settings.timerMode;
+      elapsedBeforeRef.current = 0;
+      setRunning(false);
+      setCount(0);
+      saveSession(null);
+    }
+  }, [settings.timerMode]);
+
+  // Sync countdown duration to settings
   useEffect(() => {
     setSettings((s) => ({ ...s, focusDuration: duration }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration]);
 
-  // Persist active session continuously
-  const persist = useCallback(
-    (over: Partial<ActiveSession> = {}) => {
-      const base: ActiveSession = {
-        startedAt: startedAtRef.current,
-        duration,
-        elapsedBefore: elapsedBeforeRef.current,
-        count,
-        running,
-        mode,
-        tag: selectedTag,
-        affId: selectedAff ?? undefined,
-        ...over,
-      };
-      // Only persist if there is meaningful state
-      if (running || count > 0 || elapsedBeforeRef.current > 0) {
-        saveSession(base);
-      } else {
-        saveSession(null);
-      }
-    },
-    [duration, count, running, mode, selectedTag, selectedAff],
-  );
-
-  // Persist whenever key state changes
+  // Persist active session whenever key state changes
   useEffect(() => {
-    persist();
-  }, [persist]);
+    const base: ActiveSession = {
+      startedAt: startedAtRef.current,
+      duration,
+      elapsedBefore: elapsedBeforeRef.current,
+      count,
+      running,
+      mode,
+      tag: selectedTag,
+      affId: selectedAff ?? undefined,
+      timerMode: settings.timerMode,
+    };
+    if (running || count > 0 || elapsedBeforeRef.current > 0) saveSession(base);
+    else saveSession(null);
+  }, [duration, count, running, mode, selectedTag, selectedAff, settings.timerMode]);
 
-  // Tick loop — updates UI from Date.now, never accumulates drift
+  // Tick loop — Date.now driven, no drift
   useEffect(() => {
     if (!running) return;
     let raf = 0;
@@ -136,8 +144,8 @@ function FocusPage() {
     const loop = (t: number) => {
       if (t - last > 200) {
         last = t;
-        const elapsed = computeElapsed();
-        if (elapsed >= duration) {
+        const e = computeElapsed();
+        if (!isStopwatch && e >= duration) {
           finish(true);
           return;
         }
@@ -148,15 +156,14 @@ function FocusPage() {
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [running, duration]);
+  }, [running, duration, isStopwatch]);
 
-  // Visibility / focus — recompute on return (no-op since we use Date.now, but force render)
+  // Visibility / focus — recompute on return
   useEffect(() => {
     function onVis() {
       forceTick((x) => x + 1);
-      if (!document.hidden && running) {
-        const elapsed = computeElapsed();
-        if (elapsed >= duration) finish(true);
+      if (!document.hidden && running && !isStopwatch) {
+        if (computeElapsed() >= duration) finish(true);
       }
     }
     document.addEventListener("visibilitychange", onVis);
@@ -166,7 +173,7 @@ function FocusPage() {
       window.removeEventListener("focus", onVis);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [running, duration]);
+  }, [running, duration, isStopwatch]);
 
   // beforeunload guard
   useEffect(() => {
@@ -180,7 +187,7 @@ function FocusPage() {
     return () => window.removeEventListener("beforeunload", onBefore);
   }, [running]);
 
-  // White noise lifecycle
+  // White noise lifecycle — always reflects latest settings
   useEffect(() => {
     if (running && settings.whiteNoise !== "off") {
       setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
@@ -195,7 +202,7 @@ function FocusPage() {
     if (!running || !settings.autoCountEnabled || !autoOn) return;
     const id = window.setInterval(
       () => doCount(),
-      Math.max(0.2, settings.autoCountInterval) * 1000,
+      Math.max(0.1, settings.autoCountInterval) * 1000,
     );
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -226,34 +233,21 @@ function FocusPage() {
   );
 
   function doCount() {
-    setCount((c) => {
-      const next = c + 1;
-      // persist immediately on change
-      saveSession({
-        startedAt: startedAtRef.current,
-        duration,
-        elapsedBefore: elapsedBeforeRef.current,
-        count: next,
-        running,
-        mode,
-        tag: selectedTag,
-        affId: selectedAff ?? undefined,
-      });
-      return next;
-    });
-    playFeedback(settings);
+    const affId = mode === "single" ? selectedAff || undefined : undefined;
+    setCount((c) => c + 1);
+    // Real-time upsert into today's log → flows to Data Center & Manifest stats.
+    setLogs((prev) => upsertDailyLog(prev, { tag: selectedTag, affId, addCount: 1 }));
     if (mode === "single" && selectedAff) {
       setAffs((prev) =>
         prev.map((a) => (a.id === selectedAff ? { ...a, count: a.count + 1 } : a)),
       );
     }
+    playFeedback(settings);
   }
 
   function start() {
-    // If already finished previously, reset elapsed
-    if (elapsedBeforeRef.current >= duration) {
+    if (!isStopwatch && elapsedBeforeRef.current >= duration) {
       elapsedBeforeRef.current = 0;
-      setCount(0);
     }
     startedAtRef.current = Date.now();
     setRunning(true);
@@ -264,72 +258,54 @@ function FocusPage() {
     setRunning(false);
   }
   function finish(completed: boolean) {
-    // Compute final elapsed
-    const finalElapsed = Math.min(duration, computeElapsed());
+    const finalElapsed = isStopwatch
+      ? computeElapsed()
+      : Math.min(duration, computeElapsed());
     elapsedBeforeRef.current = finalElapsed;
     setRunning(false);
-    saveLog(finalElapsed);
+    // Add duration only (counts were upserted in real time).
+    const secs = Math.round(finalElapsed);
+    if (secs > 0) {
+      const affId = mode === "single" ? selectedAff || undefined : undefined;
+      setLogs((prev) =>
+        upsertDailyLog(prev, { tag: selectedTag, affId, addDuration: secs }),
+      );
+    }
     if (completed) {
       setCelebrated(true);
-      // brief feedback chime
       playFeedback({ ...settings, sound: true });
       setTimeout(() => setCelebrated(false), 3600);
     }
-    // reset for next round
     elapsedBeforeRef.current = 0;
     setCount(0);
     saveSession(null);
   }
   function reset() {
-    if (computeElapsed() > 0 || count > 0) {
-      saveLog(Math.min(duration, computeElapsed()));
-    }
-    elapsedBeforeRef.current = 0;
-    setCount(0);
-    setRunning(false);
-    saveSession(null);
-  }
-  function saveLog(elapsedSec: number) {
-    const secs = Math.round(elapsedSec);
-    if (secs === 0 && count === 0) return;
-    const log: FocusLog = {
-      id: uid(),
-      date: todayKey(),
-      tag: selectedTag,
-      affirmationId: mode === "single" ? selectedAff || undefined : undefined,
-      count,
-      durationSec: secs,
-      timestamp: Date.now(),
-    };
-    setLogs((prev) => [log, ...prev]);
+    finish(false);
   }
 
+  // Today's count from logs (real-time, no double-counting).
   const todayCount = useMemo(() => {
-    const td = todayKey();
     if (settings.counterMode === "total") {
-      if (mode === "single" && currentAff) return currentAff.count + count;
-      return (
-        logs.filter((l) => l.tag === selectedTag).reduce((s, l) => s + l.count, 0) + count
-      );
+      if (mode === "single" && currentAff) return currentAff.count;
+      return logs.filter((l) => l.tag === selectedTag).reduce((s, l) => s + l.count, 0);
     }
+    const td = todayKey();
     if (mode === "single" && selectedAff) {
-      return (
-        logs
-          .filter((l) => l.date === td && l.affirmationId === selectedAff)
-          .reduce((s, l) => s + l.count, 0) + count
-      );
+      return logs
+        .filter((l) => l.date === td && l.affirmationId === selectedAff)
+        .reduce((s, l) => s + l.count, 0);
     }
-    return (
-      logs
-        .filter((l) => l.date === td && l.tag === selectedTag)
-        .reduce((s, l) => s + l.count, 0) + count
-    );
-  }, [logs, count, settings.counterMode, mode, currentAff, selectedAff, selectedTag]);
+    return logs
+      .filter((l) => l.date === td && l.tag === selectedTag)
+      .reduce((s, l) => s + l.count, 0);
+  }, [logs, settings.counterMode, mode, currentAff, selectedAff, selectedTag]);
 
-  const hh = String(Math.floor(remaining / 3600)).padStart(2, "0");
-  const mm = String(Math.floor((remaining % 3600) / 60)).padStart(2, "0");
-  const ss = String(remaining % 60).padStart(2, "0");
-  const showHours = duration >= 3600;
+  const dispSec = isStopwatch ? elapsedDisplay : remaining;
+  const hh = String(Math.floor(dispSec / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((dispSec % 3600) / 60)).padStart(2, "0");
+  const ss = String(dispSec % 60).padStart(2, "0");
+  const showHours = dispSec >= 3600 || (!isStopwatch && duration >= 3600);
 
   return (
     <AppShell title="进入专注">
@@ -337,23 +313,28 @@ function FocusPage() {
         {/* Compact timer card */}
         <GlassCard className="py-5">
           <div className="text-center">
+            <p className="text-[11px] tracking-widest opacity-50 mb-1">
+              {isStopwatch ? "正计时 · 秒表" : "倒计时"}
+            </p>
             <div className="font-display tabular-nums tracking-wider text-4xl md:text-5xl mb-3">
               {showHours ? `${hh}:` : ""}
               {mm}:{ss}
             </div>
-            <WheelDuration seconds={duration} onChange={setDuration} disabled={running} />
+            {!isStopwatch && (
+              <WheelDuration seconds={duration} onChange={setDuration} disabled={running} />
+            )}
             <div className="flex gap-2 justify-center mt-4">
               {!running ? (
                 <button
                   onClick={start}
-                  className="glass-strong glass-hover rounded-full px-5 py-2 text-sm flex items-center gap-2"
+                  className="glass-strong selected-strong glass-hover rounded-full px-5 py-2 text-sm flex items-center gap-2"
                 >
                   <Play className="size-4" /> 开始
                 </button>
               ) : (
                 <button
                   onClick={pause}
-                  className="glass-strong glass-hover rounded-full px-5 py-2 text-sm flex items-center gap-2"
+                  className="glass-strong selected-strong glass-hover rounded-full px-5 py-2 text-sm flex items-center gap-2"
                 >
                   <Pause className="size-4" /> 暂停
                 </button>
@@ -368,23 +349,23 @@ function FocusPage() {
           </div>
         </GlassCard>
 
-        {/* Breath text */}
+        {/* Breath text — small, same scale as buttons */}
         {settings.showBreath && settings.breathMode !== "off" && (
           <BreathText running={running} />
         )}
 
-        {/* Counter — most prominent */}
+        {/* Counter — most prominent, centered */}
         {settings.showCounter && (
           <GlassCard className="text-center py-8">
             <p className="text-xs tracking-widest opacity-50 mb-1">
               {settings.counterMode === "total" ? "累计计数" : "今日计数"}
             </p>
             <p className="text-xs opacity-50 mb-4 truncate">
-              {mode === "single" && currentAff ? `“${currentAff.text}”` : `#${selectedTag}`}
+              {mode === "single" && currentAff ? `"${currentAff.text}"` : `#${selectedTag}`}
             </p>
             <button
               onClick={doCount}
-              className="glass-strong glass-hover rounded-full size-60 md:size-72 mx-auto flex flex-col items-center justify-center active:scale-95 transition-transform"
+              className="glass-strong selected-strong glass-hover rounded-full size-60 md:size-72 mx-auto flex flex-col items-center justify-center active:scale-95 transition-transform"
               style={{ willChange: "transform" }}
             >
               <span className="font-display text-7xl md:text-8xl tabular-nums">{todayCount}</span>
@@ -394,31 +375,16 @@ function FocusPage() {
             </button>
 
             {settings.autoCountEnabled && (
-              <div className="mt-6 flex flex-col items-center gap-2">
+              <div className="mt-6 flex flex-col items-center gap-1">
                 <button
                   onClick={() => setAutoOn((v) => !v)}
-                  className={`rounded-full px-4 py-2 text-xs ${autoOn ? "glass-strong" : "glass"}`}
+                  className={`rounded-full px-4 py-2 text-xs ${selCls(autoOn)}`}
                 >
                   自动计数：{autoOn ? "进行中" : "关闭"}
                 </button>
-                <div className="flex items-center gap-2 text-xs opacity-70">
-                  <span>间隔</span>
-                  <input
-                    type="number"
-                    step={0.5}
-                    min={0.5}
-                    max={60}
-                    value={settings.autoCountInterval}
-                    onChange={(e) =>
-                      setSettings((s) => ({
-                        ...s,
-                        autoCountInterval: Math.max(0.5, Number(e.target.value) || 1),
-                      }))
-                    }
-                    className="glass rounded-xl px-2 py-1 w-16 text-center outline-none"
-                  />
-                  <span>秒 / 次</span>
-                </div>
+                <p className="text-[11px] opacity-50">
+                  间隔 {settings.autoCountInterval} 秒（可在设置中调整）
+                </p>
               </div>
             )}
           </GlassCard>
@@ -429,17 +395,13 @@ function FocusPage() {
           <div className="flex flex-wrap items-center justify-center gap-3 mb-4">
             <button
               onClick={() => setMode("random")}
-              className={`glass-hover rounded-full px-4 py-2 text-sm flex items-center gap-2 ${
-                mode === "random" ? "glass-strong" : "glass"
-              }`}
+              className={`glass-hover rounded-full px-4 py-2 text-sm flex items-center gap-2 ${selCls(mode === "random")}`}
             >
-              <Shuffle className="size-4" /> 随机模式
+              <Shuffle className="size-4" /> 主题模式
             </button>
             <button
               onClick={() => setMode("single")}
-              className={`glass-hover rounded-full px-4 py-2 text-sm flex items-center gap-2 ${
-                mode === "single" ? "glass-strong" : "glass"
-              }`}
+              className={`glass-hover rounded-full px-4 py-2 text-sm flex items-center gap-2 ${selCls(mode === "single")}`}
             >
               <Target className="size-4" /> 专一模式
             </button>
@@ -454,9 +416,7 @@ function FocusPage() {
                   setSelectedTag(t);
                   setSelectedAff(null);
                 }}
-                className={`rounded-full px-3 py-1.5 text-xs ${
-                  selectedTag === t ? "glass-strong" : "glass"
-                }`}
+                className={`rounded-full px-3 py-1.5 text-xs ${selCls(selectedTag === t)}`}
               >
                 #{t}
               </button>
@@ -476,16 +436,14 @@ function FocusPage() {
                 <button
                   key={a.id}
                   onClick={() => setSelectedAff(a.id)}
-                  className={`w-full text-left rounded-2xl px-4 py-3 text-sm ${
-                    selectedAff === a.id ? "glass-strong" : "glass"
-                  }`}
+                  className={`w-full text-left rounded-2xl px-4 py-3 text-sm ${selCls(selectedAff === a.id)}`}
                 >
                   {a.text}
                 </button>
               ))}
               {currentAff && (
                 <p className="font-display text-xl leading-relaxed text-center mt-4">
-                  “{currentAff.text}”
+                  "{currentAff.text}"
                 </p>
               )}
             </div>
@@ -550,13 +508,13 @@ function BreathText({ running }: { running: boolean }) {
       let scale = 1;
       let glow = 0.4;
       if (current.kind === "in") {
-        scale = 0.9 + k * 0.35;
+        scale = 0.95 + k * 0.2;
         glow = 0.3 + k * 0.6;
       } else if (current.kind === "out") {
-        scale = 1.25 - k * 0.35;
+        scale = 1.15 - k * 0.2;
         glow = 0.9 - k * 0.6;
       } else {
-        scale = 1.2;
+        scale = 1.1;
         glow = 0.7;
       }
       setState({ label: current.label, scale, glow });
@@ -573,27 +531,25 @@ function BreathText({ running }: { running: boolean }) {
         ? "4-7-8 呼吸"
         : `自定义 ${settings.customBreath.inhale}-${settings.customBreath.hold1}-${settings.customBreath.exhale}-${settings.customBreath.hold2}`;
 
-  // Find current phase seconds for the label
   const phase = phases.find((p) => p.label === state.label);
   const secText = phase ? `${phase.label} ${phase.sec} 秒` : state.label;
 
   return (
-    <div className="flex flex-col items-center justify-center py-4 select-none">
+    <div className="flex flex-col items-center justify-center py-2 select-none">
       <div
-        className="font-display tracking-wider"
+        className="font-display tracking-wider text-base"
         style={{
-          fontSize: "2.25rem",
           transform: `scale3d(${state.scale}, ${state.scale}, 1)`,
-          textShadow: `0 0 ${state.glow * 28}px rgba(160, 210, 255, ${state.glow}), 0 0 ${
-            state.glow * 60
+          textShadow: `0 0 ${state.glow * 18}px rgba(160, 210, 255, ${state.glow}), 0 0 ${
+            state.glow * 36
           }px rgba(180, 220, 255, ${state.glow * 0.6})`,
-          transition: "transform 60ms linear, text-shadow 60ms linear",
+          transition: "transform 80ms linear, text-shadow 80ms linear",
           willChange: "transform",
         }}
       >
         {secText}
       </div>
-      <p className="text-xs opacity-55 mt-3">{label}</p>
+      <p className="text-[11px] opacity-55 mt-1.5">{label}</p>
     </div>
   );
 }
