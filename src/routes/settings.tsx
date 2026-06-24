@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppShell, GlassCard } from "@/components/AppShell";
 import { useApp } from "@/lib/app-context";
 import { storage } from "@/lib/storage";
+import { setWhiteNoise, stopWhiteNoise } from "@/lib/white-noise";
 import {
   Download,
   Upload,
@@ -12,6 +13,8 @@ import {
   Coffee,
   Trash2,
   X,
+  Timer,
+  Hourglass,
 } from "lucide-react";
 import donateWechat from "@/assets/donate-wechat.jpg";
 import donateAlipay from "@/assets/donate-alipay.jpg";
@@ -21,11 +24,25 @@ export const Route = createFileRoute("/settings")({
   component: SettingsPage,
 });
 
+function selCls(active: boolean) {
+  return active ? "glass-strong selected-strong" : "glass";
+}
+
 function SettingsPage() {
   const { settings, setSettings } = useApp();
   const fileRef = useRef<HTMLInputElement>(null);
   const bgRef = useRef<HTMLInputElement>(null);
   const [showDonate, setShowDonate] = useState(false);
+
+  // Live preview of white-noise changes while on the settings page.
+  useEffect(() => {
+    if (settings.whiteNoise === "off") {
+      stopWhiteNoise();
+    } else {
+      setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
+    }
+    return () => stopWhiteNoise();
+  }, [settings.whiteNoise, settings.whiteNoiseVolume]);
 
   function exportData() {
     const data = storage.exportAll();
@@ -67,17 +84,13 @@ function SettingsPage() {
           <div className="flex gap-2 mb-4">
             <button
               onClick={() => setSettings((s) => ({ ...s, theme: "light" }))}
-              className={`flex-1 rounded-2xl px-4 py-3 text-sm flex items-center justify-center gap-2 ${
-                settings.theme === "light" ? "glass-strong" : "glass"
-              }`}
+              className={`flex-1 rounded-2xl px-4 py-3 text-sm flex items-center justify-center gap-2 ${selCls(settings.theme === "light")}`}
             >
               <Sun className="size-4" /> 日间
             </button>
             <button
               onClick={() => setSettings((s) => ({ ...s, theme: "dark" }))}
-              className={`flex-1 rounded-2xl px-4 py-3 text-sm flex items-center justify-center gap-2 ${
-                settings.theme === "dark" ? "glass-strong" : "glass"
-              }`}
+              className={`flex-1 rounded-2xl px-4 py-3 text-sm flex items-center justify-center gap-2 ${selCls(settings.theme === "dark")}`}
             >
               <Moon className="size-4" /> 夜间
             </button>
@@ -89,14 +102,12 @@ function SettingsPage() {
             >
               <ImageIcon className="size-4" /> 上传背景图
             </button>
-            {settings.customBg && (
-              <button
-                onClick={() => setSettings((s) => ({ ...s, customBg: undefined }))}
-                className="glass glass-hover rounded-2xl px-4 py-3 text-sm"
-              >
-                恢复默认
-              </button>
-            )}
+            <button
+              onClick={() => setSettings((s) => ({ ...s, customBg: undefined }))}
+              className="glass glass-hover rounded-2xl px-4 py-3 text-sm"
+            >
+              恢复默认海浪背景
+            </button>
             <input
               ref={bgRef}
               type="file"
@@ -109,8 +120,27 @@ function SettingsPage() {
 
         <GlassCard>
           <h2 className="font-display text-xl mb-4">专注页面</h2>
+
+          <div className="mb-4">
+            <p className="text-sm mb-2">计时模式</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSettings((s) => ({ ...s, timerMode: "countdown" }))}
+                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.timerMode === "countdown")}`}
+              >
+                <Hourglass className="size-4" /> 倒计时
+              </button>
+              <button
+                onClick={() => setSettings((s) => ({ ...s, timerMode: "stopwatch" }))}
+                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.timerMode === "stopwatch")}`}
+              >
+                <Timer className="size-4" /> 正计时（秒表）
+              </button>
+            </div>
+          </div>
+
           <Toggle
-            label="显示呼吸球"
+            label="开启呼吸调整"
             value={settings.showBreath}
             onChange={(v) => setSettings((s) => ({ ...s, showBreath: v }))}
           />
@@ -137,14 +167,31 @@ function SettingsPage() {
 
           {settings.autoCountEnabled && (
             <div className="mt-2 mb-3">
-              <p className="text-xs opacity-70 mb-2">
-                默认自动计数间隔：每 {settings.autoCountInterval} 秒 +1
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs opacity-70">
+                  自动计数间隔
+                </p>
+                <input
+                  type="number"
+                  step={0.1}
+                  min={0.1}
+                  max={60}
+                  value={settings.autoCountInterval}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      autoCountInterval: Math.max(0.1, Number(e.target.value) || 1),
+                    }))
+                  }
+                  className="glass rounded-xl px-2 py-1 w-20 text-sm text-center outline-none tabular-nums"
+                />
+                <span className="text-xs opacity-60">秒 / 次</span>
+              </div>
               <input
                 type="range"
-                min={0.5}
+                min={0.1}
                 max={10}
-                step={0.5}
+                step={0.1}
                 value={settings.autoCountInterval}
                 onChange={(e) =>
                   setSettings((s) => ({ ...s, autoCountInterval: Number(e.target.value) }))
@@ -161,9 +208,7 @@ function SettingsPage() {
                 <button
                   key={m}
                   onClick={() => setSettings((s) => ({ ...s, counterMode: m }))}
-                  className={`flex-1 rounded-full px-3 py-2 text-xs ${
-                    settings.counterMode === m ? "glass-strong" : "glass"
-                  }`}
+                  className={`flex-1 rounded-full px-3 py-2 text-xs ${selCls(settings.counterMode === m)}`}
                 >
                   {m === "today" ? "今日计数" : "累计计数"}
                 </button>
@@ -178,9 +223,7 @@ function SettingsPage() {
                 <button
                   key={m}
                   onClick={() => setSettings((s) => ({ ...s, breathMode: m }))}
-                  className={`rounded-full px-3 py-1.5 text-xs ${
-                    settings.breathMode === m ? "glass-strong" : "glass"
-                  }`}
+                  className={`rounded-full px-3 py-1.5 text-xs ${selCls(settings.breathMode === m)}`}
                 >
                   {m === "box"
                     ? "箱式 4-4-4-4"
@@ -225,9 +268,7 @@ function SettingsPage() {
                 <button
                   key={m}
                   onClick={() => setSettings((s) => ({ ...s, whiteNoise: m }))}
-                  className={`rounded-full px-3 py-1.5 text-xs ${
-                    settings.whiteNoise === m ? "glass-strong" : "glass"
-                  }`}
+                  className={`rounded-full px-3 py-1.5 text-xs ${selCls(settings.whiteNoise === m)}`}
                 >
                   {m === "off" ? "关闭" : m === "waves" ? "🌊 海浪" : m === "fire" ? "🔥 篝火" : "🌧 下雨"}
                 </button>
@@ -352,7 +393,7 @@ function Toggle({
       <button
         onClick={() => onChange(!value)}
         className={`w-12 h-7 rounded-full glass relative transition ${
-          value ? "glass-strong" : ""
+          value ? "glass-strong selected-strong" : ""
         }`}
       >
         <span
