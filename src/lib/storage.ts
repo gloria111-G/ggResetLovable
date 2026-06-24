@@ -45,7 +45,43 @@ export type Settings = {
   focusDuration: number;
   whiteNoise: WhiteNoise;
   whiteNoiseVolume: number; // 0-1
+  timerMode: "countdown" | "stopwatch";
 };
+
+export function dailyLogId(date: string, tag: string, affId?: string) {
+  return `daily-${date}-${tag}-${affId || "none"}`;
+}
+
+export function upsertDailyLog(
+  logs: FocusLog[],
+  patch: { tag: string; affId?: string; addCount?: number; addDuration?: number },
+): FocusLog[] {
+  const date = todayKey();
+  const id = dailyLogId(date, patch.tag, patch.affId);
+  const idx = logs.findIndex((l) => l.id === id);
+  if (idx >= 0) {
+    const next = logs.slice();
+    next[idx] = {
+      ...next[idx],
+      count: next[idx].count + (patch.addCount || 0),
+      durationSec: next[idx].durationSec + (patch.addDuration || 0),
+      timestamp: Date.now(),
+    };
+    return next;
+  }
+  return [
+    {
+      id,
+      date,
+      tag: patch.tag,
+      affirmationId: patch.affId,
+      count: patch.addCount || 0,
+      durationSec: patch.addDuration || 0,
+      timestamp: Date.now(),
+    },
+    ...logs,
+  ];
+}
 
 const KEYS = {
   affirmations: "gg_affirmations",
