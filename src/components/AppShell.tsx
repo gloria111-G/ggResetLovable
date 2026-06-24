@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { ArrowLeft, Settings as SettingsIcon } from "lucide-react";
 
@@ -11,20 +11,30 @@ export function AppShell({
   title?: string;
   back?: boolean;
 }) {
+  const router = useRouter();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const showSettingsBtn = path !== "/settings";
+
+  function goBack() {
+    // Prefer real history; fall back to home if there is none.
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.history.back();
+    } else {
+      router.navigate({ to: "/" });
+    }
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
       <header className="px-4 md:px-6 pt-6 pb-2 flex items-center justify-between max-w-5xl mx-auto w-full gap-3">
         {back ? (
-          <Link
-            to="/"
+          <button
+            onClick={goBack}
             className="glass glass-hover rounded-full px-3 py-2 text-sm flex items-center gap-1 shrink-0"
-            aria-label="返回主页"
+            aria-label="返回上一级"
           >
             <ArrowLeft className="size-4" />
-          </Link>
+          </button>
         ) : (
           <div className="w-10 shrink-0" />
         )}
