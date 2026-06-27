@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 
 // Apple-style wheel time picker: hours / minutes / seconds.
-// Max 16 hours.
+// Max 16 hours. Supports wheel-scroll, touch, AND mouse click-drag on desktop.
 
 const ITEM_H = 36; // px
+const VISIBLE = 5; // odd, total visible rows
+const VIEW_H = ITEM_H * VISIBLE; // 180
 
 function Column({
   values,
@@ -19,20 +21,21 @@ function Column({
   disabled?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const timeoutRef = useRef<number | null>(null);
+  const settleRef = useRef<number | null>(null);
 
-  // sync scroll position to value
+  // Sync scroll position when value changes externally
   useEffect(() => {
     if (!ref.current) return;
-    const idx = values.indexOf(value);
-    if (idx < 0) return;
-    ref.current.scrollTop = idx * ITEM_H;
+    const idx = Math.max(0, values.indexOf(value));
+    const target = idx * ITEM_H;
+    if (Math.abs(ref.current.scrollTop - target) > 1) {
+      ref.current.scrollTop = target;
+    }
   }, [value, values]);
 
-  function onScroll() {
-    if (disabled) return;
-    if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
-    timeoutRef.current = window.setTimeout(() => {
+  function settle() {
+    if (settleRef.current) window.clearTimeout(settleRef.current);
+    settleRef.current = window.setTimeout(() => {
       if (!ref.current) return;
       const idx = Math.round(ref.current.scrollTop / ITEM_H);
       const clamped = Math.max(0, Math.min(values.length - 1, idx));
@@ -42,22 +45,60 @@ function Column({
     }, 120);
   }
 
+  // Mouse click-drag support (vertical)
+  const drag = useRef<{ y: number; startTop: number; active: boolean } | null>(null);
+
+  function onMouseDown(e: React.MouseEvent) {
+    if (disabled || !ref.current) return;
+    drag.current = { y: e.clientY, startTop: ref.current.scrollTop, active: true };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    (e.currentTarget as HTMLElement).style.cursor = "grabbing";
+  }
+  function onMouseMove(e: MouseEvent) {
+    if (!drag.current || !ref.current) return;
+    const dy = e.clientY - drag.current.y;
+    ref.current.scrollTop = drag.current.startTop - dy;
+  }
+  function onMouseUp() {
+    if (drag.current && ref.current) ref.current.style.cursor = "grab";
+    drag.current = null;
+    window.removeEventListener("mousemove", onMouseMove);
+    window.removeEventListener("mouseup", onMouseUp);
+    settle();
+  }
+
+  // Click on a row to select
+  function clickValue(v: number) {
+    if (disabled) return;
+    onChange(v);
+  }
+
   return (
     <div className="relative flex-1 select-none">
       <div
         ref={ref}
-        onScroll={onScroll}
-        className={`h-[108px] overflow-y-scroll scrollbar-hide snap-y snap-mandatory ${
-          disabled ? "pointer-events-none opacity-50" : ""
+        onScroll={settle}
+        onMouseDown={onMouseDown}
+        onWheel={() => settle()}
+        className={`overflow-y-scroll scrollbar-hide snap-y snap-mandatory ${
+          disabled ? "pointer-events-none opacity-50" : "cursor-grab"
         }`}
-        style={{ scrollSnapType: "y mandatory", scrollbarWidth: "none" }}
+        style={{
+          height: VIEW_H,
+          scrollSnapType: "y mandatory",
+          scrollbarWidth: "none",
+        }}
       >
-        <div style={{ height: ITEM_H }} />
+        <div style={{ height: ITEM_H * Math.floor(VISIBLE / 2) }} />
         {values.map((v) => (
           <div
             key={v}
+            onClick={() => clickValue(v)}
             className={`snap-center flex items-center justify-center tabular-nums transition-opacity ${
-              v === value ? "opacity-100 font-display text-2xl" : "opacity-40 text-base"
+              v === value
+                ? "opacity-100 font-display text-3xl"
+                : "opacity-40 text-base hover:opacity-70"
             }`}
             style={{ height: ITEM_H }}
           >
@@ -65,7 +106,7 @@ function Column({
             <span className="text-[10px] ml-1 opacity-60">{unit}</span>
           </div>
         ))}
-        <div style={{ height: ITEM_H }} />
+        <div style={{ height: ITEM_H * Math.floor(VISIBLE / 2) }} />
       </div>
       {/* center highlight */}
       <div
@@ -108,7 +149,7 @@ export function WheelDuration({
   const secs = Array.from({ length: 60 }, (_, i) => i);
 
   return (
-    <div className="relative w-full max-w-xs mx-auto">
+    <div className="relative w-full max-w-sm mx-auto">
       <div className="flex items-center gap-1 px-2">
         <Column
           values={hours}
