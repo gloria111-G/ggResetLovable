@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell, GlassCard } from "@/components/AppShell";
 import { WheelDuration } from "@/components/WheelDuration";
@@ -10,50 +10,113 @@ import {
   type FocusLog,
   DEFAULT_TAGS,
   todayKey,
-  ACTIVE_SESSION_KEY,
+  ACTIVE_SESSION_KEY_AFFIRM,
+  ACTIVE_SESSION_KEY_BREATH,
 } from "@/lib/storage";
-import { setWhiteNoise, stopWhiteNoise } from "@/lib/white-noise";
-import { Play, Pause, RotateCcw, Shuffle, Target, Plus } from "lucide-react";
+import { setWhiteNoise, stopWhiteNoise, getCurrentWhiteNoise } from "@/lib/white-noise";
+import { Play, Pause, RotateCcw, Plus, Sparkles, Wind } from "lucide-react";
 
 export const Route = createFileRoute("/focus")({
   head: () => ({ meta: [{ title: "进入专注 · GG RESET" }] }),
   component: FocusPage,
 });
 
+type Tab = "affirm" | "breath";
+
+function FocusPage() {
+  const [tab, setTab] = useState<Tab>(() => {
+    if (typeof window === "undefined") return "affirm";
+    return (localStorage.getItem("gg_focus_tab") as Tab) || "affirm";
+  });
+  useEffect(() => {
+    localStorage.setItem("gg_focus_tab", tab);
+  }, [tab]);
+
+  const titleSlot = (
+    <div className="flex items-center gap-2">
+      <Link to="/" className="font-display tracking-wide text-sm md:text-base opacity-70 hover:opacity-100">
+        GG RESET ·
+      </Link>
+      <div className="glass rounded-full p-0.5 flex">
+        <button
+          onClick={() => setTab("affirm")}
+          className={`rounded-full px-3 py-1.5 text-xs md:text-sm flex items-center gap-1 ${
+            tab === "affirm" ? "glass-strong selected-strong" : "opacity-70"
+          }`}
+        >
+          <Sparkles className="size-3.5" /> 肯定语
+        </button>
+        <button
+          onClick={() => setTab("breath")}
+          className={`rounded-full px-3 py-1.5 text-xs md:text-sm flex items-center gap-1 ${
+            tab === "breath" ? "glass-strong selected-strong" : "opacity-70"
+          }`}
+        >
+          <Wind className="size-3.5" /> 呼吸法
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <AppShell titleSlot={titleSlot}>
+      {tab === "affirm" ? <AffirmFocus /> : <BreathFocus />}
+    </AppShell>
+  );
+}
+
+/* ============================================================
+ * Shared time-based session core
+ * ============================================================ */
+
 type ActiveSession = {
-  startedAt: number; // ms (last resume)
-  duration: number; // total seconds (countdown only)
-  elapsedBefore: number; // accumulated seconds before this resume
+  startedAt: number;
+  duration: number;
+  elapsedBefore: number;
   count: number;
   running: boolean;
-  mode: "random" | "single";
   tag: string;
   affId?: string;
-  timerMode: "countdown" | "stopwatch";
+  autoOn?: boolean;
+  lastAutoAt?: number;
 };
 
-function loadSession(): ActiveSession | null {
+function loadSession(key: string): ActiveSession | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(ACTIVE_SESSION_KEY);
+    const raw = localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as ActiveSession) : null;
   } catch {
     return null;
   }
 }
-function saveSession(s: ActiveSession | null) {
+function saveSession(key: string, s: ActiveSession | null) {
   if (typeof window === "undefined") return;
-  if (s) localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(s));
-  else localStorage.removeItem(ACTIVE_SESSION_KEY);
+  if (s) localStorage.setItem(key, JSON.stringify(s));
+  else localStorage.removeItem(key);
+}
+
+function fmt(secs: number, forceHours = false) {
+  const s = Math.max(0, Math.floor(secs));
+  const hh = Math.floor(s / 3600);
+  const mm = Math.floor((s % 3600) / 60);
+  const ss = s % 60;
+  const showH = forceHours || hh > 0;
+  const p = (n: number) => String(n).padStart(2, "0");
+  return showH ? `${p(hh)}:${p(mm)}:${p(ss)}` : `${p(mm)}:${p(ss)}`;
 }
 
 function selCls(active: boolean) {
   return active ? "glass-strong selected-strong" : "glass";
 }
 
-function FocusPage() {
+/* ============================================================
+ * Affirmation Focus
+ * ============================================================ */
+
+function AffirmFocus() {
   const { settings, setSettings } = useApp();
-  const isStopwatch = settings.timerMode === "stopwatch";
+  const isStopwatch = settings.affirmTimerMode === "stopwatch";
 
   const [affirmations, setAffs] = useLocal<Affirmation[]>("gg_affirmations", []);
   const [logs, setLogs] = useLocal<FocusLog[]>("gg_focus_logs", []);
@@ -64,33 +127,33 @@ function FocusPage() {
     return Array.from(set);
   }, [affirmations]);
 
-  // Restore from active session (if any) on first render
   const restored = useRef(false);
   const initial = useRef<ActiveSession | null>(null);
   if (!restored.current && typeof window !== "undefined") {
-    initial.current = loadSession();
+    initial.current = loadSession(ACTIVE_SESSION_KEY_AFFIRM);
     restored.current = true;
   }
 
-  const [mode, setMode] = useState<"random" | "single">(initial.current?.mode ?? "random");
   const [selectedTag, setSelectedTag] = useState<string>(
     initial.current?.tag ?? tags[0] ?? "自我概念",
   );
-  const [selectedAff, setSelectedAff] = useState<string | null>(initial.current?.affId ?? null);
+  // null = no specific affirmation selected (theme-level focus)
+  const [selectedAff, setSelectedAff] = useState<string | null>(
+    initial.current?.affId ?? null,
+  );
 
   const [duration, setDuration] = useState<number>(
     initial.current?.duration ?? settings.focusDuration ?? 300,
   );
   const [running, setRunning] = useState<boolean>(initial.current?.running ?? false);
   const [count, setCount] = useState<number>(initial.current?.count ?? 0);
-  const [autoOn, setAutoOn] = useState(false);
+  const [autoOn, setAutoOn] = useState<boolean>(initial.current?.autoOn ?? false);
   const [celebrated, setCelebrated] = useState(false);
 
-  // Time tracking — Date.now based, persisted
   const startedAtRef = useRef<number>(initial.current?.startedAt ?? Date.now());
   const elapsedBeforeRef = useRef<number>(initial.current?.elapsedBefore ?? 0);
+  const lastAutoAtRef = useRef<number>(initial.current?.lastAutoAt ?? Date.now());
 
-  // Display computed value (re-renders driven by forceTick / running state)
   const computeElapsed = useCallback(() => {
     if (!running) return elapsedBeforeRef.current;
     return elapsedBeforeRef.current + (Date.now() - startedAtRef.current) / 1000;
@@ -99,27 +162,15 @@ function FocusPage() {
   const [, forceTick] = useState(0);
   const elapsedNow = computeElapsed();
   const remaining = Math.max(0, Math.ceil(duration - elapsedNow));
-  const elapsedDisplay = Math.floor(elapsedNow);
+  const dispSec = isStopwatch ? Math.floor(elapsedNow) : remaining;
 
-  // Reset session if user switches timer mode in settings (real-time)
-  const prevTimerModeRef = useRef(settings.timerMode);
-  useEffect(() => {
-    if (prevTimerModeRef.current !== settings.timerMode) {
-      prevTimerModeRef.current = settings.timerMode;
-      elapsedBeforeRef.current = 0;
-      setRunning(false);
-      setCount(0);
-      saveSession(null);
-    }
-  }, [settings.timerMode]);
-
-  // Sync countdown duration to settings
+  // Sync duration → settings
   useEffect(() => {
     setSettings((s) => ({ ...s, focusDuration: duration }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration]);
 
-  // Persist active session whenever key state changes
+  // Persist session
   useEffect(() => {
     const base: ActiveSession = {
       startedAt: startedAtRef.current,
@@ -127,22 +178,409 @@ function FocusPage() {
       elapsedBefore: elapsedBeforeRef.current,
       count,
       running,
-      mode,
       tag: selectedTag,
       affId: selectedAff ?? undefined,
-      timerMode: settings.timerMode,
+      autoOn,
+      lastAutoAt: lastAutoAtRef.current,
     };
-    if (running || count > 0 || elapsedBeforeRef.current > 0) saveSession(base);
-    else saveSession(null);
-  }, [duration, count, running, mode, selectedTag, selectedAff, settings.timerMode]);
+    if (running || count > 0 || elapsedBeforeRef.current > 0)
+      saveSession(ACTIVE_SESSION_KEY_AFFIRM, base);
+    else saveSession(ACTIVE_SESSION_KEY_AFFIRM, null);
+  }, [duration, count, running, selectedTag, selectedAff, autoOn]);
 
-  // Tick loop — Date.now driven, no drift
+  // Auto-count: time-delta catchup (correct even after backgrounding)
+  const flushAutoCount = useCallback(() => {
+    if (!running || !settings.autoCountEnabled || !autoOn) return;
+    const intervalMs = Math.max(0.1, settings.autoCountInterval) * 1000;
+    const now = Date.now();
+    // Cap by allowed elapsed (don't count past countdown end)
+    const e = computeElapsed();
+    const limitMs = isStopwatch ? Infinity : Math.max(0, duration - e) * 1000;
+    const elapsedSinceLast = Math.min(now - lastAutoAtRef.current, limitMs + intervalMs);
+    const n = Math.floor(elapsedSinceLast / intervalMs);
+    if (n > 0) {
+      lastAutoAtRef.current += n * intervalMs;
+      addCount(n);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running, autoOn, settings.autoCountEnabled, settings.autoCountInterval, duration, isStopwatch]);
+
+  // Main tick loop
   useEffect(() => {
     if (!running) return;
     let raf = 0;
     let last = 0;
     const loop = (t: number) => {
-      if (t - last > 200) {
+      if (t - last > 120) {
+        last = t;
+        const e = computeElapsed();
+        if (!isStopwatch && e >= duration) {
+          finish(true);
+          return;
+        }
+        flushAutoCount();
+        forceTick((x) => (x + 1) % 1_000_000);
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running, duration, isStopwatch, flushAutoCount]);
+
+  // Visibility recompute (handles background tabs / screen lock)
+  useEffect(() => {
+    function onVis() {
+      flushAutoCount();
+      forceTick((x) => x + 1);
+      if (!document.hidden && running && !isStopwatch) {
+        if (computeElapsed() >= duration) finish(true);
+      }
+    }
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", onVis);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running, duration, isStopwatch, flushAutoCount]);
+
+  // beforeunload guard
+  useEffect(() => {
+    if (!running) return;
+    function onBefore(e: BeforeUnloadEvent) {
+      e.preventDefault();
+      e.returnValue = "您当前的练习正在进行中，确定要离开吗？";
+      return e.returnValue;
+    }
+    window.addEventListener("beforeunload", onBefore);
+    return () => window.removeEventListener("beforeunload", onBefore);
+  }, [running]);
+
+  // White noise reflects latest settings, sync with running state
+  useEffect(() => {
+    if (settings.whiteNoise !== "off") {
+      // play whenever user picked a noise (Settings preview or focus)
+      setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
+    } else {
+      if (getCurrentWhiteNoise() !== "off") stopWhiteNoise();
+    }
+  }, [settings.whiteNoise, settings.whiteNoiseVolume]);
+
+  // Keyboard shortcut
+  useEffect(() => {
+    if (!settings.keyboardCounter) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== " " && e.key !== "Enter") return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+      e.preventDefault();
+      addCount(1, true);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.keyboardCounter, selectedAff, selectedTag]);
+
+  const filteredAffs = useMemo(
+    () => affirmations.filter((a) => a.tag === selectedTag),
+    [affirmations, selectedTag],
+  );
+  const currentAff = useMemo(
+    () => affirmations.find((a) => a.id === selectedAff) || null,
+    [affirmations, selectedAff],
+  );
+
+  function addCount(n: number, feedback = false) {
+    if (n <= 0) return;
+    const affId = selectedAff || undefined;
+    setCount((c) => c + n);
+    setLogs((prev) =>
+      upsertDailyLog(prev, { tag: selectedTag, affId, addCount: n, kind: "affirm" }),
+    );
+    if (selectedAff) {
+      setAffs((prev) =>
+        prev.map((a) => (a.id === selectedAff ? { ...a, count: a.count + n } : a)),
+      );
+    }
+    if (feedback) playFeedback(settings);
+    else if (settings.sound) playFeedback(settings);
+  }
+
+  function start() {
+    if (!isStopwatch && elapsedBeforeRef.current >= duration) {
+      elapsedBeforeRef.current = 0;
+    }
+    startedAtRef.current = Date.now();
+    lastAutoAtRef.current = Date.now();
+    setRunning(true);
+    setCelebrated(false);
+    // Auto-enable auto-count when timer starts (per spec)
+    if (settings.autoCountEnabled) setAutoOn(true);
+  }
+  function pause() {
+    flushAutoCount();
+    elapsedBeforeRef.current += (Date.now() - startedAtRef.current) / 1000;
+    setRunning(false);
+  }
+  function finish(completed: boolean) {
+    flushAutoCount();
+    const finalElapsed = isStopwatch
+      ? computeElapsed()
+      : Math.min(duration, computeElapsed());
+    setRunning(false);
+    const secs = Math.round(finalElapsed);
+    if (secs > 0) {
+      const affId = selectedAff || undefined;
+      setLogs((prev) =>
+        upsertDailyLog(prev, {
+          tag: selectedTag,
+          affId,
+          addDuration: secs,
+          kind: "affirm",
+        }),
+      );
+    }
+    // Always celebrate when user explicitly ends or naturally completes
+    setCelebrated(true);
+    playFeedback({ ...settings, sound: true });
+    setTimeout(() => setCelebrated(false), 3600);
+    elapsedBeforeRef.current = 0;
+    setCount(0);
+    saveSession(ACTIVE_SESSION_KEY_AFFIRM, null);
+  }
+
+  const todayCount = useMemo(() => {
+    if (settings.counterMode === "total") {
+      if (selectedAff && currentAff) return currentAff.count;
+      return logs.filter((l) => l.tag === selectedTag).reduce((s, l) => s + l.count, 0);
+    }
+    const td = todayKey();
+    if (selectedAff) {
+      return logs
+        .filter((l) => l.date === td && l.affirmationId === selectedAff)
+        .reduce((s, l) => s + l.count, 0);
+    }
+    return logs
+      .filter((l) => l.date === td && l.tag === selectedTag)
+      .reduce((s, l) => s + l.count, 0);
+  }, [logs, settings.counterMode, currentAff, selectedAff, selectedTag]);
+
+  return (
+    <div className="grid gap-5">
+      {/* Timer at top — wheel inline at final position; hidden while running */}
+      <GlassCard className="py-6">
+        <p className="text-center text-[11px] tracking-widest opacity-50 mb-2">
+          {isStopwatch ? "正计时 · 秒表" : "倒计时"}
+        </p>
+        {running || isStopwatch ? (
+          <div className="text-center">
+            <div className="font-display tabular-nums tracking-wider text-5xl md:text-6xl">
+              {fmt(dispSec, !isStopwatch && duration >= 3600)}
+            </div>
+          </div>
+        ) : (
+          <WheelDuration seconds={duration} onChange={setDuration} disabled={running} />
+        )}
+        <div className="flex gap-2 justify-center mt-5">
+          {!running ? (
+            <button
+              onClick={start}
+              className="glass-strong selected-strong glass-hover rounded-full px-6 py-2.5 text-sm flex items-center gap-2"
+            >
+              <Play className="size-4" /> 开始
+            </button>
+          ) : (
+            <button
+              onClick={pause}
+              className="glass-strong selected-strong glass-hover rounded-full px-6 py-2.5 text-sm flex items-center gap-2"
+            >
+              <Pause className="size-4" /> 暂停
+            </button>
+          )}
+          <button
+            onClick={() => finish(false)}
+            className="glass glass-hover rounded-full px-6 py-2.5 text-sm flex items-center gap-2"
+          >
+            <RotateCcw className="size-4" /> 结束
+          </button>
+        </div>
+      </GlassCard>
+
+      {/* Big counter */}
+      <GlassCard className="text-center py-8">
+        <p className="text-xs tracking-widest opacity-50 mb-1">
+          {settings.counterMode === "total" ? "累计计数" : "今日计数"}
+        </p>
+        <p className="text-xs opacity-50 mb-4 truncate">
+          {currentAff ? `"${currentAff.text}"` : `#${selectedTag}`}
+        </p>
+        <button
+          onClick={() => addCount(1, true)}
+          className="glass-strong selected-strong glass-hover rounded-full size-60 md:size-72 mx-auto flex flex-col items-center justify-center active:scale-95 transition-transform"
+          style={{ willChange: "transform" }}
+        >
+          <span className="font-display text-7xl md:text-8xl tabular-nums">{todayCount}</span>
+          <span className="flex items-center gap-1 text-sm opacity-70 mt-2">
+            <Plus className="size-4" /> 点击 +1
+          </span>
+        </button>
+
+        {settings.autoCountEnabled && (
+          <div className="mt-6 flex flex-col items-center gap-1">
+            <button
+              onClick={() => {
+                if (!autoOn) lastAutoAtRef.current = Date.now();
+                setAutoOn((v) => !v);
+              }}
+              className={`rounded-full px-4 py-2 text-xs ${selCls(autoOn)}`}
+            >
+              自动计数：{autoOn ? "开启" : "暂停"}
+            </button>
+            <p className="text-[11px] opacity-50">
+              间隔 {settings.autoCountInterval} 秒（可在设置中调整）
+            </p>
+          </div>
+        )}
+      </GlassCard>
+
+      {/* Theme / affirmation selector */}
+      <GlassCard>
+        <p className="text-xs tracking-widest opacity-50 text-center mb-3">专注于</p>
+        <div className="flex flex-wrap justify-center gap-2">
+          {tags.map((t) => (
+            <button
+              key={t}
+              onClick={() => {
+                setSelectedTag(t);
+                setSelectedAff(null);
+              }}
+              className={`rounded-full px-3 py-1.5 text-xs ${selCls(selectedTag === t)}`}
+            >
+              #{t}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {filteredAffs.length === 0 ? (
+            <p className="font-display text-2xl text-center">#{selectedTag}</p>
+          ) : (
+            <>
+              <p className="text-[11px] opacity-60 text-center">
+                可选具体肯定语，未选时聚焦整个主题
+              </p>
+              {filteredAffs.map((a) => (
+                <button
+                  key={a.id}
+                  onClick={() => setSelectedAff(selectedAff === a.id ? null : a.id)}
+                  className={`w-full text-left rounded-2xl px-4 py-3 text-sm ${selCls(
+                    selectedAff === a.id,
+                  )}`}
+                >
+                  {a.text}
+                </button>
+              ))}
+              {currentAff && (
+                <p className="font-display text-xl leading-relaxed text-center mt-4">
+                  "{currentAff.text}"
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      </GlassCard>
+
+      {celebrated && <Celebration />}
+    </div>
+  );
+}
+
+/* ============================================================
+ * Breath Focus
+ * ============================================================ */
+
+const TIPS = [
+  {
+    title: "迷走神经的温柔启动",
+    body: "用冰水轻拍面颊或含一口冰水，能快速激活迷走神经，帮助身体从紧绷切回松弛模式。",
+  },
+  {
+    title: "4-7-8 呼吸",
+    body: "吸气 4 秒、屏息 7 秒、呼气 8 秒。重复 4 组，副交感神经会接管，焦虑感会自然下降。",
+  },
+  {
+    title: "哼鸣 (Humming)",
+    body: "闭上嘴轻轻哼一段 30 秒，喉部震动会刺激迷走神经，舒缓焦虑与心率。",
+  },
+  {
+    title: "20 秒拥抱",
+    body: "一个超过 20 秒的拥抱（或自我拥抱）会释放催产素，让神经系统感觉「我是安全的」。",
+  },
+  {
+    title: "Grounding 5-4-3-2-1",
+    body: "说出 5 个看到、4 个听到、3 个触到、2 个闻到、1 个尝到的东西，把自己带回当下。",
+  },
+];
+
+function BreathFocus() {
+  const { settings, setSettings } = useApp();
+  const isStopwatch = settings.breathTimerMode === "stopwatch";
+
+  const [logs, setLogs] = useLocal<FocusLog[]>("gg_focus_logs", []);
+
+  const restored = useRef(false);
+  const initial = useRef<ActiveSession | null>(null);
+  if (!restored.current && typeof window !== "undefined") {
+    initial.current = loadSession(ACTIVE_SESSION_KEY_BREATH);
+    restored.current = true;
+  }
+
+  const [duration, setDuration] = useState<number>(
+    initial.current?.duration ?? settings.breathFocusDuration ?? 300,
+  );
+  const [running, setRunning] = useState<boolean>(initial.current?.running ?? false);
+  const [celebrated, setCelebrated] = useState(false);
+
+  const startedAtRef = useRef<number>(initial.current?.startedAt ?? Date.now());
+  const elapsedBeforeRef = useRef<number>(initial.current?.elapsedBefore ?? 0);
+
+  const computeElapsed = useCallback(() => {
+    if (!running) return elapsedBeforeRef.current;
+    return elapsedBeforeRef.current + (Date.now() - startedAtRef.current) / 1000;
+  }, [running]);
+
+  const [, forceTick] = useState(0);
+  const elapsedNow = computeElapsed();
+  const remaining = Math.max(0, Math.ceil(duration - elapsedNow));
+  const dispSec = isStopwatch ? Math.floor(elapsedNow) : remaining;
+
+  useEffect(() => {
+    setSettings((s) => ({ ...s, breathFocusDuration: duration }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [duration]);
+
+  useEffect(() => {
+    const base: ActiveSession = {
+      startedAt: startedAtRef.current,
+      duration,
+      elapsedBefore: elapsedBeforeRef.current,
+      count: 0,
+      running,
+      tag: "呼吸法",
+    };
+    if (running || elapsedBeforeRef.current > 0)
+      saveSession(ACTIVE_SESSION_KEY_BREATH, base);
+    else saveSession(ACTIVE_SESSION_KEY_BREATH, null);
+  }, [duration, running]);
+
+  useEffect(() => {
+    if (!running) return;
+    let raf = 0;
+    let last = 0;
+    const loop = (t: number) => {
+      if (t - last > 120) {
         last = t;
         const e = computeElapsed();
         if (!isStopwatch && e >= duration) {
@@ -158,7 +596,6 @@ function FocusPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running, duration, isStopwatch]);
 
-  // Visibility / focus — recompute on return
   useEffect(() => {
     function onVis() {
       forceTick((x) => x + 1);
@@ -175,75 +612,24 @@ function FocusPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running, duration, isStopwatch]);
 
-  // beforeunload guard
   useEffect(() => {
     if (!running) return;
     function onBefore(e: BeforeUnloadEvent) {
       e.preventDefault();
-      e.returnValue = "您当前的神经调节正在进行中，退出将中断本次练习，确定要离开吗？";
+      e.returnValue = "您当前的呼吸调节正在进行中，确定要离开吗？";
       return e.returnValue;
     }
     window.addEventListener("beforeunload", onBefore);
     return () => window.removeEventListener("beforeunload", onBefore);
   }, [running]);
 
-  // White noise lifecycle — always reflects latest settings
   useEffect(() => {
-    if (running && settings.whiteNoise !== "off") {
+    if (settings.whiteNoise !== "off") {
       setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
     } else {
-      stopWhiteNoise();
+      if (getCurrentWhiteNoise() !== "off") stopWhiteNoise();
     }
-    return () => stopWhiteNoise();
-  }, [running, settings.whiteNoise, settings.whiteNoiseVolume]);
-
-  // Auto-count
-  useEffect(() => {
-    if (!running || !settings.autoCountEnabled || !autoOn) return;
-    const id = window.setInterval(
-      () => doCount(),
-      Math.max(0.1, settings.autoCountInterval) * 1000,
-    );
-    return () => window.clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [running, autoOn, settings.autoCountEnabled, settings.autoCountInterval]);
-
-  // Keyboard
-  useEffect(() => {
-    if (!settings.keyboardCounter) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key !== " " && e.key !== "Enter") return;
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
-      e.preventDefault();
-      doCount();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.keyboardCounter, mode, selectedAff, selectedTag]);
-
-  const filteredAffs = useMemo(
-    () => affirmations.filter((a) => a.tag === selectedTag),
-    [affirmations, selectedTag],
-  );
-  const currentAff = useMemo(
-    () => (mode === "single" ? affirmations.find((a) => a.id === selectedAff) || null : null),
-    [mode, affirmations, selectedAff],
-  );
-
-  function doCount() {
-    const affId = mode === "single" ? selectedAff || undefined : undefined;
-    setCount((c) => c + 1);
-    // Real-time upsert into today's log → flows to Data Center & Manifest stats.
-    setLogs((prev) => upsertDailyLog(prev, { tag: selectedTag, affId, addCount: 1 }));
-    if (mode === "single" && selectedAff) {
-      setAffs((prev) =>
-        prev.map((a) => (a.id === selectedAff ? { ...a, count: a.count + 1 } : a)),
-      );
-    }
-    playFeedback(settings);
-  }
+  }, [settings.whiteNoise, settings.whiteNoiseVolume]);
 
   function start() {
     if (!isStopwatch && elapsedBeforeRef.current >= duration) {
@@ -257,206 +643,105 @@ function FocusPage() {
     elapsedBeforeRef.current += (Date.now() - startedAtRef.current) / 1000;
     setRunning(false);
   }
-  function finish(completed: boolean) {
+  function finish(_completed: boolean) {
     const finalElapsed = isStopwatch
       ? computeElapsed()
       : Math.min(duration, computeElapsed());
-    elapsedBeforeRef.current = finalElapsed;
     setRunning(false);
-    // Add duration only (counts were upserted in real time).
     const secs = Math.round(finalElapsed);
     if (secs > 0) {
-      const affId = mode === "single" ? selectedAff || undefined : undefined;
       setLogs((prev) =>
-        upsertDailyLog(prev, { tag: selectedTag, affId, addDuration: secs }),
+        upsertDailyLog(prev, {
+          tag: "神经系统调节",
+          addDuration: secs,
+          kind: "breath",
+        }),
       );
     }
-    if (completed) {
-      setCelebrated(true);
-      playFeedback({ ...settings, sound: true });
-      setTimeout(() => setCelebrated(false), 3600);
-    }
+    setCelebrated(true);
+    playFeedback({ ...settings, sound: true });
+    setTimeout(() => setCelebrated(false), 3600);
     elapsedBeforeRef.current = 0;
-    setCount(0);
-    saveSession(null);
+    saveSession(ACTIVE_SESSION_KEY_BREATH, null);
   }
-  function reset() {
-    finish(false);
-  }
-
-  // Today's count from logs (real-time, no double-counting).
-  const todayCount = useMemo(() => {
-    if (settings.counterMode === "total") {
-      if (mode === "single" && currentAff) return currentAff.count;
-      return logs.filter((l) => l.tag === selectedTag).reduce((s, l) => s + l.count, 0);
-    }
-    const td = todayKey();
-    if (mode === "single" && selectedAff) {
-      return logs
-        .filter((l) => l.date === td && l.affirmationId === selectedAff)
-        .reduce((s, l) => s + l.count, 0);
-    }
-    return logs
-      .filter((l) => l.date === td && l.tag === selectedTag)
-      .reduce((s, l) => s + l.count, 0);
-  }, [logs, settings.counterMode, mode, currentAff, selectedAff, selectedTag]);
-
-  const dispSec = isStopwatch ? elapsedDisplay : remaining;
-  const hh = String(Math.floor(dispSec / 3600)).padStart(2, "0");
-  const mm = String(Math.floor((dispSec % 3600) / 60)).padStart(2, "0");
-  const ss = String(dispSec % 60).padStart(2, "0");
-  const showHours = dispSec >= 3600 || (!isStopwatch && duration >= 3600);
 
   return (
-    <AppShell title="进入专注">
-      <div className="grid gap-5">
-        {/* Compact timer card */}
-        <GlassCard className="py-5">
+    <div className="grid gap-5">
+      {/* Timer */}
+      <GlassCard className="py-6">
+        <p className="text-center text-[11px] tracking-widest opacity-50 mb-2">
+          {isStopwatch ? "正计时 · 秒表" : "倒计时"}
+        </p>
+        {running || isStopwatch ? (
           <div className="text-center">
-            <p className="text-[11px] tracking-widest opacity-50 mb-1">
-              {isStopwatch ? "正计时 · 秒表" : "倒计时"}
-            </p>
-            <div className="font-display tabular-nums tracking-wider text-4xl md:text-5xl mb-3">
-              {showHours ? `${hh}:` : ""}
-              {mm}:{ss}
-            </div>
-            {!isStopwatch && (
-              <WheelDuration seconds={duration} onChange={setDuration} disabled={running} />
-            )}
-            <div className="flex gap-2 justify-center mt-4">
-              {!running ? (
-                <button
-                  onClick={start}
-                  className="glass-strong selected-strong glass-hover rounded-full px-5 py-2 text-sm flex items-center gap-2"
-                >
-                  <Play className="size-4" /> 开始
-                </button>
-              ) : (
-                <button
-                  onClick={pause}
-                  className="glass-strong selected-strong glass-hover rounded-full px-5 py-2 text-sm flex items-center gap-2"
-                >
-                  <Pause className="size-4" /> 暂停
-                </button>
-              )}
-              <button
-                onClick={reset}
-                className="glass glass-hover rounded-full px-5 py-2 text-sm flex items-center gap-2"
-              >
-                <RotateCcw className="size-4" /> 结束
-              </button>
+            <div className="font-display tabular-nums tracking-wider text-5xl md:text-6xl">
+              {fmt(dispSec, !isStopwatch && duration >= 3600)}
             </div>
           </div>
-        </GlassCard>
-
-        {/* Breath text — small, same scale as buttons */}
-        {settings.showBreath && settings.breathMode !== "off" && (
-          <BreathText running={running} />
+        ) : (
+          <WheelDuration seconds={duration} onChange={setDuration} disabled={running} />
         )}
-
-        {/* Counter — most prominent, centered */}
-        {settings.showCounter && (
-          <GlassCard className="text-center py-8">
-            <p className="text-xs tracking-widest opacity-50 mb-1">
-              {settings.counterMode === "total" ? "累计计数" : "今日计数"}
-            </p>
-            <p className="text-xs opacity-50 mb-4 truncate">
-              {mode === "single" && currentAff ? `"${currentAff.text}"` : `#${selectedTag}`}
-            </p>
+        <div className="flex gap-2 justify-center mt-5">
+          {!running ? (
             <button
-              onClick={doCount}
-              className="glass-strong selected-strong glass-hover rounded-full size-60 md:size-72 mx-auto flex flex-col items-center justify-center active:scale-95 transition-transform"
-              style={{ willChange: "transform" }}
+              onClick={start}
+              className="glass-strong selected-strong glass-hover rounded-full px-6 py-2.5 text-sm flex items-center gap-2"
             >
-              <span className="font-display text-7xl md:text-8xl tabular-nums">{todayCount}</span>
-              <span className="flex items-center gap-1 text-sm opacity-70 mt-2">
-                <Plus className="size-4" /> 点击 +1
-              </span>
+              <Play className="size-4" /> 开始
             </button>
-
-            {settings.autoCountEnabled && (
-              <div className="mt-6 flex flex-col items-center gap-1">
-                <button
-                  onClick={() => setAutoOn((v) => !v)}
-                  className={`rounded-full px-4 py-2 text-xs ${selCls(autoOn)}`}
-                >
-                  自动计数：{autoOn ? "进行中" : "关闭"}
-                </button>
-                <p className="text-[11px] opacity-50">
-                  间隔 {settings.autoCountInterval} 秒（可在设置中调整）
-                </p>
-              </div>
-            )}
-          </GlassCard>
-        )}
-
-        {/* Mode selector — bottom */}
-        <GlassCard>
-          <div className="flex flex-wrap items-center justify-center gap-3 mb-4">
-            <button
-              onClick={() => setMode("random")}
-              className={`glass-hover rounded-full px-4 py-2 text-sm flex items-center gap-2 ${selCls(mode === "random")}`}
-            >
-              <Shuffle className="size-4" /> 主题模式
-            </button>
-            <button
-              onClick={() => setMode("single")}
-              className={`glass-hover rounded-full px-4 py-2 text-sm flex items-center gap-2 ${selCls(mode === "single")}`}
-            >
-              <Target className="size-4" /> 专一模式
-            </button>
-          </div>
-
-          <p className="text-xs tracking-widest opacity-50 text-center mb-3">专注于</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {tags.map((t) => (
-              <button
-                key={t}
-                onClick={() => {
-                  setSelectedTag(t);
-                  setSelectedAff(null);
-                }}
-                className={`rounded-full px-3 py-1.5 text-xs ${selCls(selectedTag === t)}`}
-              >
-                #{t}
-              </button>
-            ))}
-          </div>
-
-          {mode === "random" ? (
-            <p className="font-display text-2xl text-center mt-4">#{selectedTag}</p>
           ) : (
-            <div className="mt-4 space-y-2">
-              {filteredAffs.length === 0 && (
-                <p className="text-sm opacity-60 text-center">
-                  此标签下还没有肯定语，先去「显化列表」添加一条吧。
-                </p>
-              )}
-              {filteredAffs.map((a) => (
-                <button
-                  key={a.id}
-                  onClick={() => setSelectedAff(a.id)}
-                  className={`w-full text-left rounded-2xl px-4 py-3 text-sm ${selCls(selectedAff === a.id)}`}
-                >
-                  {a.text}
-                </button>
-              ))}
-              {currentAff && (
-                <p className="font-display text-xl leading-relaxed text-center mt-4">
-                  "{currentAff.text}"
-                </p>
-              )}
-            </div>
+            <button
+              onClick={pause}
+              className="glass-strong selected-strong glass-hover rounded-full px-6 py-2.5 text-sm flex items-center gap-2"
+            >
+              <Pause className="size-4" /> 暂停
+            </button>
           )}
-        </GlassCard>
-      </div>
+          <button
+            onClick={() => finish(false)}
+            className="glass glass-hover rounded-full px-6 py-2.5 text-sm flex items-center gap-2"
+          >
+            <RotateCcw className="size-4" /> 结束
+          </button>
+        </div>
+      </GlassCard>
+
+      {/* Breath ball */}
+      <GlassCard className="py-10">
+        <BreathBall running={running} />
+        <p className="text-center text-xs opacity-70 mt-6">
+          当前呼吸模式：<span className="font-medium">{breathLabel(settings)}</span>
+          <span className="opacity-50">（可在设置中调整）</span>
+        </p>
+      </GlassCard>
+
+      {/* Tips */}
+      <GlassCard>
+        <h2 className="font-display text-xl mb-4">神经系统调节 · Tips</h2>
+        <div className="grid md:grid-cols-2 gap-3">
+          {TIPS.map((t) => (
+            <div key={t.title} className="glass rounded-2xl p-4">
+              <p className="font-display text-lg mb-1">{t.title}</p>
+              <p className="text-xs opacity-75 leading-relaxed">{t.body}</p>
+            </div>
+          ))}
+        </div>
+      </GlassCard>
 
       {celebrated && <Celebration />}
-    </AppShell>
+    </div>
   );
 }
 
-function BreathText({ running }: { running: boolean }) {
+function breathLabel(settings: ReturnType<typeof useApp>["settings"]) {
+  if (settings.breathMode === "box") return "箱式呼吸 4-4-4-4";
+  if (settings.breathMode === "478") return "4-7-8 呼吸";
+  if (settings.breathMode === "off") return "未开启";
+  const c = settings.customBreath;
+  return `自定义 ${c.inhale}-${c.hold1}-${c.exhale}-${c.hold2}`;
+}
+
+function BreathBall({ running }: { running: boolean }) {
   const { settings } = useApp();
   const phases = useMemo(() => {
     if (settings.breathMode === "box")
@@ -472,6 +757,8 @@ function BreathText({ running }: { running: boolean }) {
         { label: "屏息", sec: 7, kind: "hold" as const },
         { label: "呼气", sec: 8, kind: "out" as const },
       ];
+    if (settings.breathMode === "off")
+      return [{ label: "未开启", sec: 1, kind: "hold" as const }];
     return [
       { label: "吸气", sec: settings.customBreath.inhale, kind: "in" as const },
       { label: "屏息", sec: settings.customBreath.hold1, kind: "hold" as const },
@@ -481,11 +768,17 @@ function BreathText({ running }: { running: boolean }) {
   }, [settings.breathMode, settings.customBreath]);
 
   const cycleStart = useRef(Date.now());
-  const [state, setState] = useState({ label: "准备", scale: 1, glow: 0.3 });
+  const [state, setState] = useState({
+    label: "准备",
+    seconds: 0,
+    countdown: 0,
+    scale: 1,
+    glow: 0.3,
+  });
 
   useEffect(() => {
     if (!running) {
-      setState({ label: "准备", scale: 1, glow: 0.3 });
+      setState({ label: "准备", seconds: 0, countdown: 0, scale: 1, glow: 0.3 });
       return;
     }
     cycleStart.current = Date.now();
@@ -508,54 +801,65 @@ function BreathText({ running }: { running: boolean }) {
       let scale = 1;
       let glow = 0.4;
       if (current.kind === "in") {
-        scale = 0.95 + k * 0.2;
+        scale = 0.7 + k * 0.45;
         glow = 0.3 + k * 0.6;
       } else if (current.kind === "out") {
-        scale = 1.15 - k * 0.2;
+        scale = 1.15 - k * 0.45;
         glow = 0.9 - k * 0.6;
       } else {
-        scale = 1.1;
+        scale = 1.15;
         glow = 0.7;
       }
-      setState({ label: current.label, scale, glow });
+      const countdown = Math.max(1, Math.ceil(current.sec - phaseT));
+      setState({
+        label: current.label,
+        seconds: current.sec,
+        countdown,
+        scale,
+        glow,
+      });
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [running, phases]);
 
-  const label =
-    settings.breathMode === "box"
-      ? "箱式呼吸 4-4-4-4"
-      : settings.breathMode === "478"
-        ? "4-7-8 呼吸"
-        : `自定义 ${settings.customBreath.inhale}-${settings.customBreath.hold1}-${settings.customBreath.exhale}-${settings.customBreath.hold2}`;
-
-  const phase = phases.find((p) => p.label === state.label);
-  const secText = phase ? `${phase.label} ${phase.sec} 秒` : state.label;
+  const nums = Array.from({ length: state.seconds || 1 }, (_, i) => i + 1).join(" ");
 
   return (
-    <div className="flex flex-col items-center justify-center py-2 select-none">
+    <div className="flex flex-col items-center justify-center select-none">
       <div
-        className="font-display tracking-wider text-base"
+        className="rounded-full flex items-center justify-center"
         style={{
+          width: 220,
+          height: 220,
           transform: `scale3d(${state.scale}, ${state.scale}, 1)`,
-          textShadow: `0 0 ${state.glow * 18}px rgba(160, 210, 255, ${state.glow}), 0 0 ${
-            state.glow * 36
-          }px rgba(180, 220, 255, ${state.glow * 0.6})`,
-          transition: "transform 80ms linear, text-shadow 80ms linear",
+          background:
+            "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.55), rgba(160,210,255,0.35) 50%, rgba(120,170,230,0.25) 100%)",
+          boxShadow: `0 0 ${state.glow * 60}px rgba(160,210,255,${state.glow}), inset 0 0 40px rgba(255,255,255,0.4)`,
+          transition: "transform 80ms linear, box-shadow 120ms linear",
           willChange: "transform",
         }}
       >
-        {secText}
+        <div className="text-center">
+          <p className="font-display text-2xl mb-1">{state.label}</p>
+          {running && state.seconds > 0 && (
+            <p className="tabular-nums text-sm opacity-80">
+              {nums}
+              <span className="ml-2 font-display text-xl">{state.countdown}</span>
+            </p>
+          )}
+        </div>
       </div>
-      <p className="text-[11px] opacity-55 mt-1.5">{label}</p>
     </div>
   );
 }
 
+/* ============================================================
+ * Celebration
+ * ============================================================ */
 function Celebration() {
-  const colors = ["#7FB3D5", "#F5B7B1", "#A9DFBF", "#F9E79F", "#D2B4DE", "#F5CBA7"];
+  const colors = ["#7FB3D5", "#A9DFBF", "#AED6F1", "#D6EAF8", "#F9E79F", "#D2B4DE"];
   const pieces = Array.from({ length: 60 }, (_, i) => ({
     left: Math.random() * 100,
     delay: Math.random() * 0.6,
