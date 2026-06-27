@@ -8,42 +8,23 @@ export const Route = createFileRoute("/data")({
   component: DataPage,
 });
 
-const TIPS = [
-  {
-    title: "迷走神经的温柔启动",
-    body: "用冰水轻拍面颊或含一口冰水，能快速激活迷走神经，帮助身体从紧绷切回松弛模式。",
-  },
-  {
-    title: "4-7-8 呼吸",
-    body: "吸气 4 秒、屏息 7 秒、呼气 8 秒。重复 4 组，副交感神经会接管，焦虑感会自然下降。",
-  },
-  {
-    title: "哼鸣 (Humming)",
-    body: "闭上嘴轻轻哼一段 30 秒，喉部震动会刺激迷走神经，舒缓焦虑与心率。",
-  },
-  {
-    title: "20 秒拥抱",
-    body: "一个超过 20 秒的拥抱（或自我拥抱）会释放催产素，让神经系统感觉「我是安全的」。",
-  },
-  {
-    title: "Grounding 5-4-3-2-1",
-    body: "说出 5 个看到、4 个听到、3 个触到、2 个闻到、1 个尝到的东西，把自己带回当下。",
-  },
-];
-
 const TAG_COLORS = [
   "#7FB3D5",
-  "#F5B7B1",
   "#A9DFBF",
   "#F9E79F",
   "#D2B4DE",
   "#F5CBA7",
   "#AED6F1",
   "#F1948A",
+  "#F5B7B1",
 ];
 
 function DataPage() {
   const [logs] = useLocal<FocusLog[]>("gg_focus_logs", []);
+
+  // Affirmation logs only (breath logs are tracked separately)
+  const affirmLogs = useMemo(() => logs.filter((l) => (l.kind ?? "affirm") === "affirm"), [logs]);
+  const breathLogs = useMemo(() => logs.filter((l) => l.kind === "breath"), [logs]);
 
   const stats = useMemo(() => {
     const now = Date.now();
@@ -51,7 +32,7 @@ function DataPage() {
     const month = 30 * 86400_000;
 
     const sum = (range: number) => {
-      const arr = logs.filter((l) => now - l.timestamp <= range);
+      const arr = affirmLogs.filter((l) => now - l.timestamp <= range);
       const count = arr.reduce((s, l) => s + l.count, 0);
       const dur = arr.reduce((s, l) => s + l.durationSec, 0);
       const tagMap = new Map<string, { count: number; dur: number }>();
@@ -65,26 +46,24 @@ function DataPage() {
       return { count, dur, tags };
     };
 
-    return { week: sum(week), month: sum(month) };
-  }, [logs]);
+    const breath = (range: number) => {
+      const arr = breathLogs.filter((l) => now - l.timestamp <= range);
+      return arr.reduce((s, l) => s + l.durationSec, 0);
+    };
+
+    return {
+      week: sum(week),
+      month: sum(month),
+      breathWeek: breath(week),
+      breathMonth: breath(month),
+    };
+  }, [affirmLogs, breathLogs]);
 
   return (
     <AppShell title="数据中心">
       <div className="grid gap-6">
-        <WeekCard data={stats.week} />
-        <MonthCard data={stats.month} logs={logs} />
-
-        <GlassCard>
-          <h2 className="font-display text-2xl mb-4">神经系统调节 · Tips</h2>
-          <div className="grid md:grid-cols-2 gap-3">
-            {TIPS.map((t) => (
-              <div key={t.title} className="glass rounded-2xl p-4">
-                <p className="font-display text-lg mb-1">{t.title}</p>
-                <p className="text-xs opacity-75 leading-relaxed">{t.body}</p>
-              </div>
-            ))}
-          </div>
-        </GlassCard>
+        <WeekCard data={stats.week} breathSec={stats.breathWeek} />
+        <MonthCard data={stats.month} breathSec={stats.breathMonth} logs={affirmLogs} />
       </div>
     </AppShell>
   );
@@ -92,13 +71,20 @@ function DataPage() {
 
 type AggTag = { tag: string; count: number; dur: number };
 
-function WeekCard({ data }: { data: { count: number; dur: number; tags: AggTag[] } }) {
+function WeekCard({
+  data,
+  breathSec,
+}: {
+  data: { count: number; dur: number; tags: AggTag[] };
+  breathSec: number;
+}) {
   const minutes = Math.floor(data.dur / 60);
+  const breathMin = Math.floor(breathSec / 60);
   const max = data.tags[0]?.count || 1;
   return (
     <GlassCard>
       <p className="text-xs tracking-widest opacity-50 mb-3">近 7 天</p>
-      <div className="flex items-end gap-6 mb-6">
+      <div className="flex flex-wrap items-end gap-6 mb-6">
         <div>
           <p className="font-display text-5xl tabular-nums">{data.count}</p>
           <p className="text-xs opacity-60 mt-1">次肯定语</p>
@@ -106,6 +92,10 @@ function WeekCard({ data }: { data: { count: number; dur: number; tags: AggTag[]
         <div>
           <p className="font-display text-5xl tabular-nums">{minutes}</p>
           <p className="text-xs opacity-60 mt-1">分钟专注</p>
+        </div>
+        <div>
+          <p className="font-display text-5xl tabular-nums">{breathMin}</p>
+          <p className="text-xs opacity-60 mt-1">分钟 · 神经系统调节</p>
         </div>
       </div>
       <div>
@@ -134,19 +124,23 @@ function WeekCard({ data }: { data: { count: number; dur: number; tags: AggTag[]
 
 function MonthCard({
   data,
+  breathSec,
   logs,
 }: {
   data: { count: number; dur: number; tags: AggTag[] };
+  breathSec: number;
   logs: FocusLog[];
 }) {
   const totalMin = Math.floor(data.dur / 60);
+  const breathMin = Math.floor(breathSec / 60);
   return (
     <GlassCard>
-      <div className="flex items-baseline justify-between mb-4">
+      <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
         <p className="text-xs tracking-widest opacity-50">近 30 天</p>
         <p className="text-xs opacity-60">
           <span className="font-display text-lg tabular-nums mr-1">{data.count}</span>次 ·
-          <span className="font-display text-lg tabular-nums mx-1">{totalMin}</span>分钟
+          <span className="font-display text-lg tabular-nums mx-1">{totalMin}</span>分钟 ·
+          <span className="font-display text-lg tabular-nums mx-1">{breathMin}</span>分钟呼吸
         </p>
       </div>
       <div className="grid md:grid-cols-2 gap-6">
@@ -158,7 +152,6 @@ function MonthCard({
 }
 
 function CalendarHeat({ logs }: { logs: FocusLog[] }) {
-  // build 30-day grid ending today
   const days: { date: string; tag?: string; count: number }[] = [];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -167,10 +160,8 @@ function CalendarHeat({ logs }: { logs: FocusLog[] }) {
     const cur = map.get(l.date);
     if (!cur || l.count > cur.count) map.set(l.date, { tag: l.tag, count: l.count });
   });
-  // calendar grid for the current month + previous to fill 30
   const start = new Date(today);
   start.setDate(start.getDate() - 29);
-  // pad to start on Sunday
   const padStart = start.getDay();
   for (let i = 0; i < padStart; i++) days.push({ date: "", count: 0 });
   for (let i = 0; i < 30; i++) {
@@ -189,7 +180,9 @@ function CalendarHeat({ logs }: { logs: FocusLog[] }) {
       <p className="text-xs opacity-60 mb-2">打卡日历</p>
       <div className="grid grid-cols-7 gap-1 text-[10px] opacity-50 mb-1">
         {["日", "一", "二", "三", "四", "五", "六"].map((d) => (
-          <div key={d} className="text-center">{d}</div>
+          <div key={d} className="text-center">
+            {d}
+          </div>
         ))}
       </div>
       <div className="grid grid-cols-7 gap-1">
