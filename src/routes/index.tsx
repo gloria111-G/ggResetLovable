@@ -1,6 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { Sparkles, ListChecks, BarChart3, Settings as SettingsIcon } from "lucide-react";
 import { Disclaimer } from "@/components/AppShell";
+import { UsageGuideModal } from "@/components/UsageGuide";
+import { useApp } from "@/lib/app-context";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -8,18 +11,28 @@ export const Route = createFileRoute("/")({
 
 const tiles = [
   { to: "/focus", label: "进入专注", sub: "Affirm · Breathe", Icon: Sparkles },
-  { to: "/manifest", label: "显化列表", sub: "你会得到", Icon: ListChecks },
+  { to: "/manifest", label: "显化列表", sub: "List · Affirmations", Icon: ListChecks },
   { to: "/data", label: "数据中心", sub: "Insights", Icon: BarChart3 },
   { to: "/settings", label: "设置", sub: "Preferences", Icon: SettingsIcon },
 ] as const;
 
 function Home() {
+  const { settings } = useApp();
+  const [showGuide, setShowGuide] = useState(false);
   return (
     <div className="min-h-screen flex flex-col">
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-16">
-        <div className="text-center mb-14">
+        <div className="text-center mb-12">
           <p className="text-xs tracking-[0.4em] opacity-60 mb-3">REST · RESET · RECEIVE</p>
           <h1 className="font-display text-6xl md:text-7xl tracking-tight">GG RESET</h1>
+          {settings.homeGuideShortcut && (
+            <button
+              onClick={() => setShowGuide(true)}
+              className="mt-3 text-xs opacity-70 hover:opacity-100 underline underline-offset-4 transition"
+            >
+              第一次来？查看使用指南
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3 md:gap-6 w-full max-w-2xl">
@@ -39,6 +52,7 @@ function Home() {
         </div>
       </main>
       <Disclaimer />
+      {showGuide && <UsageGuideModal onClose={() => setShowGuide(false)} />}
     </div>
   );
 }

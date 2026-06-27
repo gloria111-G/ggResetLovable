@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { AppShell, GlassCard } from "@/components/AppShell";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
   useLocal,
   type Affirmation,
@@ -8,12 +9,17 @@ import {
   DEFAULT_TAGS,
   uid,
 } from "@/lib/storage";
-import { Check, Plus, Trash2, Sparkles } from "lucide-react";
+import { Check, Plus, Trash2, Sparkles, GripVertical, X } from "lucide-react";
 
 export const Route = createFileRoute("/manifest")({
   head: () => ({ meta: [{ title: "显化列表 · GG RESET" }] }),
   component: ManifestPage,
 });
+
+type PendingDelete =
+  | { kind: "goal"; id: string; text: string }
+  | { kind: "aff"; id: string; text: string }
+  | { kind: "tag"; tag: string };
 
 function ManifestPage() {
   const [goals, setGoals] = useLocal<Goal[]>("gg_goals", []);
@@ -30,15 +36,31 @@ function ManifestPage() {
   const [affTag, setAffTag] = useState(allTags[0]);
   const [newTag, setNewTag] = useState("");
   const [celebrate, setCelebrate] = useState<string | null>(null);
+  const [pending, setPending] = useState<PendingDelete | null>(null);
 
-  const active = goals.filter((g) => !g.done);
-  const done = goals.filter((g) => g.done);
+  // Goals: sort by `order` then createdAt
+  const sortedGoals = useMemo(() => {
+    return [...goals].sort((a, b) => {
+      const ao = a.order ?? a.createdAt;
+      const bo = b.order ?? b.createdAt;
+      return ao - bo;
+    });
+  }, [goals]);
+  const active = sortedGoals.filter((g) => !g.done);
+  const done = sortedGoals.filter((g) => g.done);
 
   function addGoal() {
     if (!goalInput.trim()) return;
+    const maxOrder = goals.reduce((m, g) => Math.max(m, g.order ?? g.createdAt), 0);
     setGoals((p) => [
-      { id: uid(), text: goalInput.trim(), done: false, createdAt: Date.now() },
       ...p,
+      {
+        id: uid(),
+        text: goalInput.trim(),
+        done: false,
+        createdAt: Date.now(),
+        order: maxOrder + 1,
+      },
     ]);
     setGoalInput("");
   }
@@ -56,8 +78,32 @@ function ManifestPage() {
       setTimeout(() => setCelebrate(null), 2200);
     }
   }
-  function removeGoal(id: string) {
-    setGoals((p) => p.filter((g) => g.id !== id));
+
+  // Drag and drop reordering for active goals
+  const dragId = useRef<string | null>(null);
+  function onDragStart(id: string) {
+    dragId.current = id;
+  }
+  function onDragOver(e: React.DragEvent) {
+    e.preventDefault();
+  }
+  function onDrop(targetId: string) {
+    const from = dragId.current;
+    dragId.current = null;
+    if (!from || from === targetId) return;
+    const order = active.map((g) => g.id);
+    const fromIdx = order.indexOf(from);
+    const toIdx = order.indexOf(targetId);
+    if (fromIdx < 0 || toIdx < 0) return;
+    order.splice(toIdx, 0, ...order.splice(fromIdx, 1));
+    setGoals((prev) => {
+      const next = prev.map((g) => {
+        const idx = order.indexOf(g.id);
+        if (idx >= 0) return { ...g, order: idx + 1 };
+        return g;
+      });
+      return next;
+    });
   }
 
   function addAff() {
@@ -68,14 +114,22 @@ function ManifestPage() {
     ]);
     setAffInput("");
   }
-  function removeAff(id: string) {
-    setAffs((p) => p.filter((a) => a.id !== id));
-  }
+
   function addTag() {
     const t = newTag.trim();
     if (!t || allTags.includes(t)) return;
     setCustomTags((p) => [...p, t]);
     setNewTag("");
+  }
+
+  function confirmDelete() {
+    if (!pending) return;
+    if (pending.kind === "goal") setGoals((p) => p.filter((g) => g.id !== pending.id));
+    if (pending.kind === "aff") setAffs((p) => p.filter((a) => a.id !== pending.id));
+    if (pending.kind === "tag") {
+      setCustomTags((p) => p.filter((t) => t !== pending.tag));
+      // do NOT delete affirmations under that tag automatically
+    }
   }
 
   return (
@@ -87,73 +141,7 @@ function ManifestPage() {
       )}
 
       <div className="grid gap-6">
-        <GlassCard>
-          <h2 className="font-display text-2xl mb-1">显化列表 · 你会得到：</h2>
-          <p className="text-xs opacity-60 mb-4">轻轻写下，已经完成。</p>
-
-          <div className="flex gap-2 mb-5">
-            <input
-              value={goalInput}
-              onChange={(e) => setGoalInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addGoal()}
-              placeholder="写下一个你想显化的目标…"
-              className="flex-1 glass rounded-full px-4 py-2.5 text-sm outline-none placeholder:opacity-50"
-            />
-            <button
-              onClick={addGoal}
-              className="glass glass-hover rounded-full px-4 py-2.5 text-sm flex items-center gap-1"
-            >
-              <Plus className="size-4" /> 添加
-            </button>
-          </div>
-
-          <div className="space-y-2">
-            {active.length === 0 && (
-              <p className="text-sm opacity-50 text-center py-4">还没有目标，写下第一个吧。</p>
-            )}
-            {active.map((g) => (
-              <div key={g.id} className="glass rounded-2xl px-4 py-3 flex items-center gap-3">
-                <button
-                  onClick={() => toggleGoal(g.id)}
-                  className="size-5 rounded-full border border-current/40 flex items-center justify-center shrink-0"
-                />
-                <span className="flex-1 text-sm">{g.text}</span>
-                <button onClick={() => removeGoal(g.id)} className="opacity-40 hover:opacity-100">
-                  <Trash2 className="size-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {done.length > 0 && (
-            <div className="mt-6">
-              <p className="font-display text-lg mb-3">已落地：</p>
-              <div className="space-y-2">
-                {done.map((g) => (
-                  <div
-                    key={g.id}
-                    className="glass rounded-2xl px-4 py-3 flex items-center gap-3 opacity-70"
-                  >
-                    <button
-                      onClick={() => toggleGoal(g.id)}
-                      className="size-5 rounded-full bg-current/20 flex items-center justify-center shrink-0"
-                    >
-                      <Check className="size-3" />
-                    </button>
-                    <span className="flex-1 text-sm line-through">{g.text}</span>
-                    <button
-                      onClick={() => removeGoal(g.id)}
-                      className="opacity-40 hover:opacity-100"
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </GlassCard>
-
+        {/* Affirmations FIRST */}
         <GlassCard>
           <h2 className="font-display text-2xl mb-1 flex items-center gap-2">
             <Sparkles className="size-5" /> 我的肯定语
@@ -163,17 +151,30 @@ function ManifestPage() {
           </p>
 
           <div className="flex flex-wrap gap-2 mb-4">
-            {allTags.map((t) => (
-              <button
-                key={t}
-                onClick={() => setAffTag(t)}
-                className={`rounded-full px-3 py-1.5 text-xs ${
-                  affTag === t ? "glass-strong selected-strong" : "glass"
-                }`}
-              >
-                #{t}
-              </button>
-            ))}
+            {allTags.map((t) => {
+              const isCustom = customTags.includes(t);
+              return (
+                <span key={t} className="inline-flex items-center">
+                  <button
+                    onClick={() => setAffTag(t)}
+                    className={`rounded-full px-3 py-1.5 text-xs ${
+                      affTag === t ? "glass-strong selected-strong" : "glass"
+                    }`}
+                  >
+                    #{t}
+                  </button>
+                  {isCustom && (
+                    <button
+                      onClick={() => setPending({ kind: "tag", tag: t })}
+                      className="ml-0.5 opacity-40 hover:opacity-100"
+                      aria-label="删除标签"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  )}
+                </span>
+              );
+            })}
             <div className="flex items-center gap-1">
               <input
                 value={newTag}
@@ -222,8 +223,9 @@ function ManifestPage() {
                 <span className="flex-1 text-sm">{a.text}</span>
                 <span className="text-xs tabular-nums opacity-70">×{a.count}</span>
                 <button
-                  onClick={() => removeAff(a.id)}
+                  onClick={() => setPending({ kind: "aff", id: a.id, text: a.text })}
                   className="opacity-40 hover:opacity-100"
+                  aria-label="删除肯定语"
                 >
                   <Trash2 className="size-4" />
                 </button>
@@ -231,7 +233,106 @@ function ManifestPage() {
             ))}
           </div>
         </GlassCard>
+
+        {/* Goals AFTER */}
+        <GlassCard>
+          <h2 className="font-display text-2xl mb-1">显化列表 · 你会得到：</h2>
+          <p className="text-xs opacity-60 mb-4">轻轻写下，已经完成。可拖拽调整顺序。</p>
+
+          <div className="flex gap-2 mb-5">
+            <input
+              value={goalInput}
+              onChange={(e) => setGoalInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addGoal()}
+              placeholder="写下一个你想显化的目标…"
+              className="flex-1 glass rounded-full px-4 py-2.5 text-sm outline-none placeholder:opacity-50"
+            />
+            <button
+              onClick={addGoal}
+              className="glass glass-hover rounded-full px-4 py-2.5 text-sm flex items-center gap-1"
+            >
+              <Plus className="size-4" /> 添加
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {active.length === 0 && (
+              <p className="text-sm opacity-50 text-center py-4">还没有目标，写下第一个吧。</p>
+            )}
+            {active.map((g) => (
+              <div
+                key={g.id}
+                draggable
+                onDragStart={() => onDragStart(g.id)}
+                onDragOver={onDragOver}
+                onDrop={() => onDrop(g.id)}
+                className="glass rounded-2xl px-3 py-3 flex items-center gap-2"
+              >
+                <GripVertical className="size-4 opacity-40 cursor-grab shrink-0" />
+                <button
+                  onClick={() => toggleGoal(g.id)}
+                  className="size-5 rounded-full border-2 border-current/40 flex items-center justify-center shrink-0"
+                  aria-label="完成"
+                />
+                <span className="flex-1 text-sm">{g.text}</span>
+                <button
+                  onClick={() => setPending({ kind: "goal", id: g.id, text: g.text })}
+                  className="opacity-40 hover:opacity-100"
+                  aria-label="删除"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {done.length > 0 && (
+            <div className="mt-6">
+              <p className="font-display text-lg mb-3">已落地：</p>
+              <div className="space-y-2">
+                {done.map((g) => (
+                  <div
+                    key={g.id}
+                    className="glass rounded-2xl px-4 py-3 flex items-center gap-3 opacity-70"
+                  >
+                    <button
+                      onClick={() => toggleGoal(g.id)}
+                      className="size-5 rounded-full bg-current/20 flex items-center justify-center shrink-0"
+                    >
+                      <Check className="size-3" />
+                    </button>
+                    <span className="flex-1 text-sm line-through">{g.text}</span>
+                    <button
+                      onClick={() => setPending({ kind: "goal", id: g.id, text: g.text })}
+                      className="opacity-40 hover:opacity-100"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </GlassCard>
       </div>
+
+      <ConfirmDialog
+        open={!!pending}
+        title="是否要删除？"
+        description={
+          pending?.kind === "tag"
+            ? `标签「#${pending.tag}」将被移除（标签下的肯定语会保留）`
+            : pending?.kind === "goal"
+              ? `「${pending.text}」`
+              : pending?.kind === "aff"
+                ? `「${pending.text}」`
+                : ""
+        }
+        confirmText="删除"
+        cancelText="取消"
+        onConfirm={confirmDelete}
+        onClose={() => setPending(null)}
+      />
     </AppShell>
   );
 }

@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { AppShell, GlassCard } from "@/components/AppShell";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { UsageGuideContent } from "@/components/UsageGuide";
 import { useApp } from "@/lib/app-context";
 import { storage } from "@/lib/storage";
 import { setWhiteNoise, stopWhiteNoise } from "@/lib/white-noise";
@@ -15,6 +17,9 @@ import {
   X,
   Timer,
   Hourglass,
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import donateWechat from "@/assets/donate-wechat.jpg";
 import donateAlipay from "@/assets/donate-alipay.jpg";
@@ -33,15 +38,16 @@ function SettingsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const bgRef = useRef<HTMLInputElement>(null);
   const [showDonate, setShowDonate] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
 
-  // Live preview of white-noise changes while on the settings page.
+  // Live preview of white noise on settings page
   useEffect(() => {
     if (settings.whiteNoise === "off") {
       stopWhiteNoise();
     } else {
       setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
     }
-    return () => stopWhiteNoise();
   }, [settings.whiteNoise, settings.whiteNoiseVolume]);
 
   function exportData() {
@@ -79,6 +85,36 @@ function SettingsPage() {
   return (
     <AppShell title="设置">
       <div className="grid gap-6">
+        {/* Usage Guide — first */}
+        <GlassCard>
+          <button
+            onClick={() => setGuideOpen((v) => !v)}
+            className="w-full flex items-center justify-between"
+          >
+            <span className="flex items-center gap-2 font-display text-xl">
+              <BookOpen className="size-5" /> 使用说明
+            </span>
+            {guideOpen ? (
+              <ChevronUp className="size-4 opacity-60" />
+            ) : (
+              <ChevronDown className="size-4 opacity-60" />
+            )}
+          </button>
+          {guideOpen && (
+            <div className="mt-5">
+              <UsageGuideContent />
+            </div>
+          )}
+          <div className="mt-5 pt-4 border-t border-white/15">
+            <Toggle
+              label="保留主页快捷入口"
+              value={settings.homeGuideShortcut}
+              onChange={(v) => setSettings((s) => ({ ...s, homeGuideShortcut: v }))}
+            />
+          </div>
+        </GlassCard>
+
+        {/* Appearance */}
         <GlassCard>
           <h2 className="font-display text-xl mb-4">外观</h2>
           <div className="flex gap-2 mb-4">
@@ -118,21 +154,40 @@ function SettingsPage() {
           </div>
         </GlassCard>
 
+        {/* Focus settings */}
         <GlassCard>
           <h2 className="font-display text-xl mb-4">专注页面</h2>
 
           <div className="mb-4">
-            <p className="text-sm mb-2">计时模式</p>
+            <p className="text-sm mb-2">计时模式 · 肯定语页面</p>
             <div className="flex gap-2">
               <button
-                onClick={() => setSettings((s) => ({ ...s, timerMode: "countdown" }))}
-                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.timerMode === "countdown")}`}
+                onClick={() => setSettings((s) => ({ ...s, affirmTimerMode: "countdown" }))}
+                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.affirmTimerMode === "countdown")}`}
               >
                 <Hourglass className="size-4" /> 倒计时
               </button>
               <button
-                onClick={() => setSettings((s) => ({ ...s, timerMode: "stopwatch" }))}
-                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.timerMode === "stopwatch")}`}
+                onClick={() => setSettings((s) => ({ ...s, affirmTimerMode: "stopwatch" }))}
+                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.affirmTimerMode === "stopwatch")}`}
+              >
+                <Timer className="size-4" /> 正计时（秒表）
+              </button>
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <p className="text-sm mb-2">计时模式 · 呼吸法页面</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSettings((s) => ({ ...s, breathTimerMode: "countdown" }))}
+                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.breathTimerMode === "countdown")}`}
+              >
+                <Hourglass className="size-4" /> 倒计时
+              </button>
+              <button
+                onClick={() => setSettings((s) => ({ ...s, breathTimerMode: "stopwatch" }))}
+                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.breathTimerMode === "stopwatch")}`}
               >
                 <Timer className="size-4" /> 正计时（秒表）
               </button>
@@ -140,17 +195,7 @@ function SettingsPage() {
           </div>
 
           <Toggle
-            label="开启呼吸调整"
-            value={settings.showBreath}
-            onChange={(v) => setSettings((s) => ({ ...s, showBreath: v }))}
-          />
-          <Toggle
-            label="显示计数器"
-            value={settings.showCounter}
-            onChange={(v) => setSettings((s) => ({ ...s, showCounter: v }))}
-          />
-          <Toggle
-            label="音效提示"
+            label="音效提示（媒体声道）"
             value={settings.sound}
             onChange={(v) => setSettings((s) => ({ ...s, sound: v }))}
           />
@@ -168,9 +213,7 @@ function SettingsPage() {
           {settings.autoCountEnabled && (
             <div className="mt-2 mb-3">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs opacity-70">
-                  自动计数间隔
-                </p>
+                <p className="text-xs opacity-70">自动计数间隔</p>
                 <input
                   type="number"
                   step={0.1}
@@ -262,7 +305,7 @@ function SettingsPage() {
           </div>
 
           <div className="mt-4">
-            <p className="text-sm mb-2">白噪音（开始专注后自动播放）</p>
+            <p className="text-sm mb-2">白噪音（媒体声道播放）</p>
             <div className="flex flex-wrap gap-2">
               {(["off", "waves", "fire", "rain"] as const).map((m) => (
                 <button
@@ -270,13 +313,21 @@ function SettingsPage() {
                   onClick={() => setSettings((s) => ({ ...s, whiteNoise: m }))}
                   className={`rounded-full px-3 py-1.5 text-xs ${selCls(settings.whiteNoise === m)}`}
                 >
-                  {m === "off" ? "关闭" : m === "waves" ? "🌊 海浪" : m === "fire" ? "🔥 篝火" : "🌧 下雨"}
+                  {m === "off"
+                    ? "关闭"
+                    : m === "waves"
+                      ? "🌊 海浪"
+                      : m === "fire"
+                        ? "🔥 篝火"
+                        : "🌧 下雨"}
                 </button>
               ))}
             </div>
             {settings.whiteNoise !== "off" && (
               <div className="mt-3">
-                <p className="text-xs opacity-70 mb-1">音量 {Math.round(settings.whiteNoiseVolume * 100)}%</p>
+                <p className="text-xs opacity-70 mb-1">
+                  音量 {Math.round(settings.whiteNoiseVolume * 100)}%
+                </p>
                 <input
                   type="range"
                   min={0}
@@ -293,6 +344,7 @@ function SettingsPage() {
           </div>
         </GlassCard>
 
+        {/* Data */}
         <GlassCard>
           <h2 className="font-display text-xl mb-4">数据</h2>
           <div className="flex flex-wrap gap-2">
@@ -309,15 +361,10 @@ function SettingsPage() {
               <Upload className="size-4" /> 导入数据
             </button>
             <button
-              onClick={() => {
-                if (confirm("确认清空所有本地数据？此操作不可恢复。")) {
-                  storage.clearAll();
-                  location.reload();
-                }
-              }}
+              onClick={() => setConfirmClear(true)}
               className="glass glass-hover rounded-2xl px-4 py-3 text-sm flex items-center gap-2"
             >
-              <Trash2 className="size-4" /> 清空数据
+              <Trash2 className="size-4" /> 重置数据
             </button>
             <input
               ref={fileRef}
@@ -330,6 +377,7 @@ function SettingsPage() {
           <p className="text-xs opacity-60 mt-3">所有数据存储在你的浏览器本地，从不上传。</p>
         </GlassCard>
 
+        {/* Donate */}
         <GlassCard className="text-center">
           <Coffee className="size-6 mx-auto mb-2 opacity-70" />
           <p className="font-display text-lg mb-1">如果喜欢 GG reset</p>
@@ -374,6 +422,20 @@ function SettingsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmClear}
+        title="重置全部本地数据？"
+        description="此操作不可恢复，所有肯定语、目标、专注记录与设置将被清空。"
+        requireText="reset"
+        confirmText="确认重置"
+        cancelText="取消"
+        onConfirm={() => {
+          storage.clearAll();
+          location.reload();
+        }}
+        onClose={() => setConfirmClear(false)}
+      />
     </AppShell>
   );
 }
