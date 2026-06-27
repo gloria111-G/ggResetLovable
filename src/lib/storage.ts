@@ -14,6 +14,7 @@ export type Goal = {
   done: boolean;
   createdAt: number;
   doneAt?: number;
+  order?: number;
 };
 
 export type FocusLog = {
@@ -24,6 +25,7 @@ export type FocusLog = {
   count: number;
   durationSec: number;
   timestamp: number;
+  kind?: "affirm" | "breath";
 };
 
 export type BreathMode = "box" | "478" | "custom" | "off";
@@ -43,21 +45,33 @@ export type Settings = {
   counterMode: "today" | "total";
   keyboardCounter: boolean;
   focusDuration: number;
+  breathFocusDuration: number;
   whiteNoise: WhiteNoise;
   whiteNoiseVolume: number; // 0-1
+  /** Legacy single mode; kept for backward compat */
   timerMode: "countdown" | "stopwatch";
+  affirmTimerMode: "countdown" | "stopwatch";
+  breathTimerMode: "countdown" | "stopwatch";
+  homeGuideShortcut: boolean;
 };
 
-export function dailyLogId(date: string, tag: string, affId?: string) {
-  return `daily-${date}-${tag}-${affId || "none"}`;
+export function dailyLogId(date: string, tag: string, affId?: string, kind: "affirm" | "breath" = "affirm") {
+  return `daily-${kind}-${date}-${tag}-${affId || "none"}`;
 }
 
 export function upsertDailyLog(
   logs: FocusLog[],
-  patch: { tag: string; affId?: string; addCount?: number; addDuration?: number },
+  patch: {
+    tag: string;
+    affId?: string;
+    addCount?: number;
+    addDuration?: number;
+    kind?: "affirm" | "breath";
+  },
 ): FocusLog[] {
   const date = todayKey();
-  const id = dailyLogId(date, patch.tag, patch.affId);
+  const kind = patch.kind || "affirm";
+  const id = dailyLogId(date, patch.tag, patch.affId, kind);
   const idx = logs.findIndex((l) => l.id === id);
   if (idx >= 0) {
     const next = logs.slice();
@@ -78,6 +92,7 @@ export function upsertDailyLog(
       count: patch.addCount || 0,
       durationSec: patch.addDuration || 0,
       timestamp: Date.now(),
+      kind,
     },
     ...logs,
   ];
@@ -92,6 +107,8 @@ const KEYS = {
 };
 
 export const ACTIVE_SESSION_KEY = "gg_active_session";
+export const ACTIVE_SESSION_KEY_AFFIRM = "gg_active_session_affirm";
+export const ACTIVE_SESSION_KEY_BREATH = "gg_active_session_breath";
 
 export const DEFAULT_TAGS = ["爱情", "财富", "健康", "事业", "自我概念", "人际关系"];
 
@@ -107,9 +124,13 @@ export const DEFAULT_SETTINGS: Settings = {
   counterMode: "today",
   keyboardCounter: false,
   focusDuration: 300,
+  breathFocusDuration: 300,
   whiteNoise: "off",
   whiteNoiseVolume: 0.5,
   timerMode: "countdown",
+  affirmTimerMode: "countdown",
+  breathTimerMode: "countdown",
+  homeGuideShortcut: true,
 };
 
 function read<T>(key: string, fallback: T): T {
