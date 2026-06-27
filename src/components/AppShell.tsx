@@ -5,10 +5,12 @@ import { ArrowLeft, Settings as SettingsIcon } from "lucide-react";
 export function AppShell({
   children,
   title,
+  titleSlot,
   back = true,
 }: {
   children: ReactNode;
   title?: string;
+  titleSlot?: ReactNode;
   back?: boolean;
 }) {
   const router = useRouter();
@@ -16,7 +18,6 @@ export function AppShell({
   const showSettingsBtn = path !== "/settings";
 
   function goBack() {
-    // Prefer real history; fall back to home if there is none.
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.history.back();
     } else {
@@ -38,12 +39,18 @@ export function AppShell({
         ) : (
           <div className="w-10 shrink-0" />
         )}
-        <Link
-          to="/"
-          className="font-display tracking-wide text-base md:text-xl text-center flex-1 truncate"
-        >
-          GG RESET{title ? ` · ${title}` : ""}
-        </Link>
+        <div className="flex-1 flex items-center justify-center min-w-0">
+          {titleSlot ? (
+            titleSlot
+          ) : (
+            <Link
+              to="/"
+              className="font-display tracking-wide text-base md:text-xl text-center truncate"
+            >
+              GG RESET{title ? ` · ${title}` : ""}
+            </Link>
+          )}
+        </div>
         {showSettingsBtn ? (
           <Link
             to="/settings"
