@@ -304,8 +304,8 @@ function AffirmFocus() {
         prev.map((a) => (a.id === selectedAff ? { ...a, count: a.count + n } : a)),
       );
     }
-    if (feedback) playFeedback(settings);
-    else if (settings.sound) playFeedback(settings);
+    if (settings.sound) playFeedback(settings);
+    void feedback;
   }
 
   function start() {
