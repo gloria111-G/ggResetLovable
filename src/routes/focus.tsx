@@ -913,7 +913,8 @@ function Celebration() {
       <div className="glass-strong rounded-3xl px-10 py-8 text-center animate-celebrate">
         <p className="text-5xl mb-3">🎉</p>
         <p className="font-display text-3xl mb-1">恭喜完成专注！</p>
-        <p className="text-xs opacity-70">为自己鼓个掌，你刚刚送给神经系统一段温柔的时光。</p>
+        <p className="text-xs opacity-70">给自己鼓个掌</p>
+
       </div>
     </div>
   );
