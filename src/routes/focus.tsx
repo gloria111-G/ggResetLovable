@@ -435,7 +435,7 @@ function AffirmFocus() {
           className="glass-strong selected-strong glass-hover rounded-full size-60 md:size-72 mx-auto flex flex-col items-center justify-center active:scale-95 transition-transform"
           style={{ willChange: "transform" }}
         >
-          <span className="font-display text-7xl md:text-8xl tabular-nums">{todayCount}</span>
+          <span className="font-num text-7xl md:text-8xl tabular-nums">{todayCount}</span>
           <span className="flex items-center gap-1 text-sm opacity-70 mt-2">
             <Plus className="size-4" /> 点击 +1
           </span>
