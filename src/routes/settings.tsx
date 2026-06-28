@@ -177,7 +177,7 @@ function SettingsPage() {
           </div>
 
           <div className="mb-4">
-            <p className="text-sm mb-2">计时模式 · 呼吸法页面</p>
+            <p className="text-sm mb-2">计时模式 · 呼吸调整页面</p>
             <div className="flex gap-2">
               <button
                 onClick={() => setSettings((s) => ({ ...s, breathTimerMode: "countdown" }))}
@@ -195,10 +195,11 @@ function SettingsPage() {
           </div>
 
           <Toggle
-            label="音效提示（媒体声道）"
+            label="计数器音效提示"
             value={settings.sound}
             onChange={(v) => setSettings((s) => ({ ...s, sound: v }))}
           />
+
           <Toggle
             label="键盘计数（回车/空格 +1）"
             value={settings.keyboardCounter}
@@ -260,7 +261,7 @@ function SettingsPage() {
           </div>
 
           <div className="mt-4">
-            <p className="text-sm mb-2">呼吸法</p>
+            <p className="text-sm mb-2">呼吸调整</p>
             <div className="flex flex-wrap gap-2">
               {(["box", "478", "custom", "off"] as const).map((m) => (
                 <button
@@ -305,7 +306,7 @@ function SettingsPage() {
           </div>
 
           <div className="mt-4">
-            <p className="text-sm mb-2">白噪音（媒体声道播放）</p>
+            <p className="text-sm mb-2">白噪音</p>
             <div className="flex flex-wrap gap-2">
               {(["off", "waves", "fire", "rain"] as const).map((m) => (
                 <button
@@ -388,7 +389,11 @@ function SettingsPage() {
           >
             <Coffee className="size-4" /> 打赏作者
           </button>
+          <p className="text-[11px] opacity-55 mt-3 leading-relaxed">
+            本网站所有功能均可免费使用，打赏非强制，不影响任何功能的使用。
+          </p>
         </GlassCard>
+
       </div>
 
       {showDonate && (

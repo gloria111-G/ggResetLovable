@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState } from "react";
 import { AppShell, GlassCard } from "@/components/AppShell";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
@@ -10,6 +10,25 @@ import {
   uid,
 } from "@/lib/storage";
 import { Check, Plus, Trash2, Sparkles, GripVertical, X } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
 
 export const Route = createFileRoute("/manifest")({
   head: () => ({ meta: [{ title: "显化列表 · GG RESET" }] }),
@@ -79,32 +98,30 @@ function ManifestPage() {
     }
   }
 
-  // Drag and drop reordering for active goals
-  const dragId = useRef<string | null>(null);
-  function onDragStart(id: string) {
-    dragId.current = id;
-  }
-  function onDragOver(e: React.DragEvent) {
-    e.preventDefault();
-  }
-  function onDrop(targetId: string) {
-    const from = dragId.current;
-    dragId.current = null;
-    if (!from || from === targetId) return;
-    const order = active.map((g) => g.id);
-    const fromIdx = order.indexOf(from);
-    const toIdx = order.indexOf(targetId);
+  // dnd-kit sensors — supports pointer + touch + keyboard
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function handleDragEnd(e: DragEndEvent) {
+    const { active: a, over } = e;
+    if (!over || a.id === over.id) return;
+    const ids = active.map((g) => g.id);
+    const fromIdx = ids.indexOf(String(a.id));
+    const toIdx = ids.indexOf(String(over.id));
     if (fromIdx < 0 || toIdx < 0) return;
-    order.splice(toIdx, 0, ...order.splice(fromIdx, 1));
-    setGoals((prev) => {
-      const next = prev.map((g) => {
-        const idx = order.indexOf(g.id);
+    const newOrder = arrayMove(ids, fromIdx, toIdx);
+    setGoals((prev) =>
+      prev.map((g) => {
+        const idx = newOrder.indexOf(g.id);
         if (idx >= 0) return { ...g, order: idx + 1 };
         return g;
-      });
-      return next;
-    });
+      }),
+    );
   }
+
 
   function addAff() {
     if (!affInput.trim()) return;
@@ -259,32 +276,28 @@ function ManifestPage() {
             {active.length === 0 && (
               <p className="text-sm opacity-50 text-center py-4">还没有目标，写下第一个吧。</p>
             )}
-            {active.map((g) => (
-              <div
-                key={g.id}
-                draggable
-                onDragStart={() => onDragStart(g.id)}
-                onDragOver={onDragOver}
-                onDrop={() => onDrop(g.id)}
-                className="glass rounded-2xl px-3 py-3 flex items-center gap-2"
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={active.map((g) => g.id)}
+                strategy={verticalListSortingStrategy}
               >
-                <GripVertical className="size-4 opacity-40 cursor-grab shrink-0" />
-                <button
-                  onClick={() => toggleGoal(g.id)}
-                  className="size-5 rounded-full border-2 border-current/40 flex items-center justify-center shrink-0"
-                  aria-label="完成"
-                />
-                <span className="flex-1 text-sm">{g.text}</span>
-                <button
-                  onClick={() => setPending({ kind: "goal", id: g.id, text: g.text })}
-                  className="opacity-40 hover:opacity-100"
-                  aria-label="删除"
-                >
-                  <Trash2 className="size-4" />
-                </button>
-              </div>
-            ))}
+                {active.map((g) => (
+                  <SortableGoal
+                    key={g.id}
+                    id={g.id}
+                    text={g.text}
+                    onToggle={() => toggleGoal(g.id)}
+                    onDelete={() => setPending({ kind: "goal", id: g.id, text: g.text })}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
           </div>
+
 
           {done.length > 0 && (
             <div className="mt-6">
@@ -334,5 +347,50 @@ function ManifestPage() {
         onClose={() => setPending(null)}
       />
     </AppShell>
+  );
+}
+
+function SortableGoal({
+  id,
+  text,
+  onToggle,
+  onDelete,
+}: {
+  id: string;
+  text: string;
+  onToggle: () => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    touchAction: "none",
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="glass rounded-2xl px-3 py-3 flex items-center gap-2"
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="touch-none cursor-grab active:cursor-grabbing p-1 -ml-1 opacity-40 hover:opacity-80 shrink-0"
+        aria-label="拖拽排序"
+      >
+        <GripVertical className="size-4" />
+      </button>
+      <button
+        onClick={onToggle}
+        className="size-5 rounded-full border-2 border-current/40 flex items-center justify-center shrink-0"
+        aria-label="完成"
+      />
+      <span className="flex-1 text-sm">{text}</span>
+      <button onClick={onDelete} className="opacity-40 hover:opacity-100" aria-label="删除">
+        <Trash2 className="size-4" />
+      </button>
+    </div>
   );
 }

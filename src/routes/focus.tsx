@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell, GlassCard } from "@/components/AppShell";
 import { WheelDuration } from "@/components/WheelDuration";
@@ -23,6 +23,8 @@ export const Route = createFileRoute("/focus")({
 
 type Tab = "affirm" | "breath";
 
+const AFFIRM_SELECTION_KEY = "gg_affirm_selection";
+
 function FocusPage() {
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window === "undefined") return "affirm";
@@ -33,28 +35,23 @@ function FocusPage() {
   }, [tab]);
 
   const titleSlot = (
-    <div className="flex items-center gap-2">
-      <Link to="/" className="font-display tracking-wide text-sm md:text-base opacity-70 hover:opacity-100">
-        GG RESET ·
-      </Link>
-      <div className="glass rounded-full p-0.5 flex">
-        <button
-          onClick={() => setTab("affirm")}
-          className={`rounded-full px-3 py-1.5 text-xs md:text-sm flex items-center gap-1 ${
-            tab === "affirm" ? "glass-strong selected-strong" : "opacity-70"
-          }`}
-        >
-          <Sparkles className="size-3.5" /> 肯定语
-        </button>
-        <button
-          onClick={() => setTab("breath")}
-          className={`rounded-full px-3 py-1.5 text-xs md:text-sm flex items-center gap-1 ${
-            tab === "breath" ? "glass-strong selected-strong" : "opacity-70"
-          }`}
-        >
-          <Wind className="size-3.5" /> 呼吸法
-        </button>
-      </div>
+    <div className="glass rounded-full p-0.5 flex">
+      <button
+        onClick={() => setTab("affirm")}
+        className={`rounded-full px-4 py-1.5 text-xs md:text-sm flex items-center gap-1 ${
+          tab === "affirm" ? "glass-strong selected-strong" : "opacity-70"
+        }`}
+      >
+        <Sparkles className="size-3.5" /> 肯定语
+      </button>
+      <button
+        onClick={() => setTab("breath")}
+        className={`rounded-full px-4 py-1.5 text-xs md:text-sm flex items-center gap-1 ${
+          tab === "breath" ? "glass-strong selected-strong" : "opacity-70"
+        }`}
+      >
+        <Wind className="size-3.5" /> 呼吸调整
+      </button>
     </div>
   );
 
@@ -64,6 +61,7 @@ function FocusPage() {
     </AppShell>
   );
 }
+
 
 /* ============================================================
  * Shared time-based session core
@@ -129,18 +127,33 @@ function AffirmFocus() {
 
   const restored = useRef(false);
   const initial = useRef<ActiveSession | null>(null);
+  const initialSel = useRef<{ tag?: string; affId?: string | null } | null>(null);
   if (!restored.current && typeof window !== "undefined") {
     initial.current = loadSession(ACTIVE_SESSION_KEY_AFFIRM);
+    try {
+      const raw = localStorage.getItem(AFFIRM_SELECTION_KEY);
+      if (raw) initialSel.current = JSON.parse(raw);
+    } catch {}
     restored.current = true;
   }
 
   const [selectedTag, setSelectedTag] = useState<string>(
-    initial.current?.tag ?? tags[0] ?? "自我概念",
+    initial.current?.tag ?? initialSel.current?.tag ?? tags[0] ?? "自我概念",
   );
   // null = no specific affirmation selected (theme-level focus)
   const [selectedAff, setSelectedAff] = useState<string | null>(
-    initial.current?.affId ?? null,
+    initial.current?.affId ?? initialSel.current?.affId ?? null,
   );
+
+  // Persist selection separately so navigating away and back keeps the choice
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(
+      AFFIRM_SELECTION_KEY,
+      JSON.stringify({ tag: selectedTag, affId: selectedAff }),
+    );
+  }, [selectedTag, selectedAff]);
+
 
   const [duration, setDuration] = useState<number>(
     initial.current?.duration ?? settings.focusDuration ?? 300,
@@ -369,14 +382,14 @@ function AffirmFocus() {
 
   return (
     <div className="grid gap-5">
-      {/* Timer at top — wheel inline at final position; hidden while running */}
+      {/* Timer at top — wheel only when fully idle; paused shows frozen time */}
       <GlassCard className="py-6">
         <p className="text-center text-[11px] tracking-widest opacity-50 mb-2">
-          {isStopwatch ? "正计时 · 秒表" : "倒计时"}
+          {isStopwatch ? "正计时 · 秒表" : running ? "倒计时" : elapsedBeforeRef.current > 0 ? "已暂停" : "倒计时"}
         </p>
-        {running || isStopwatch ? (
+        {running || isStopwatch || elapsedBeforeRef.current > 0 ? (
           <div className="text-center">
-            <div className="font-display tabular-nums tracking-wider text-5xl md:text-6xl">
+            <div className="font-num tabular-nums tracking-wider text-5xl md:text-6xl">
               {fmt(dispSec, !isStopwatch && duration >= 3600)}
             </div>
           </div>
@@ -389,7 +402,7 @@ function AffirmFocus() {
               onClick={start}
               className="glass-strong selected-strong glass-hover rounded-full px-6 py-2.5 text-sm flex items-center gap-2"
             >
-              <Play className="size-4" /> 开始
+              <Play className="size-4" /> {elapsedBeforeRef.current > 0 ? "恢复" : "开始"}
             </button>
           ) : (
             <button
@@ -408,6 +421,7 @@ function AffirmFocus() {
         </div>
       </GlassCard>
 
+
       {/* Big counter */}
       <GlassCard className="text-center py-8">
         <p className="text-xs tracking-widest opacity-50 mb-1">
@@ -421,7 +435,7 @@ function AffirmFocus() {
           className="glass-strong selected-strong glass-hover rounded-full size-60 md:size-72 mx-auto flex flex-col items-center justify-center active:scale-95 transition-transform"
           style={{ willChange: "transform" }}
         >
-          <span className="font-display text-7xl md:text-8xl tabular-nums">{todayCount}</span>
+          <span className="font-num text-7xl md:text-8xl tabular-nums">{todayCount}</span>
           <span className="flex items-center gap-1 text-sm opacity-70 mt-2">
             <Plus className="size-4" /> 点击 +1
           </span>
@@ -670,11 +684,11 @@ function BreathFocus() {
       {/* Timer */}
       <GlassCard className="py-6">
         <p className="text-center text-[11px] tracking-widest opacity-50 mb-2">
-          {isStopwatch ? "正计时 · 秒表" : "倒计时"}
+          {isStopwatch ? "正计时 · 秒表" : running ? "倒计时" : elapsedBeforeRef.current > 0 ? "已暂停" : "倒计时"}
         </p>
-        {running || isStopwatch ? (
+        {running || isStopwatch || elapsedBeforeRef.current > 0 ? (
           <div className="text-center">
-            <div className="font-display tabular-nums tracking-wider text-5xl md:text-6xl">
+            <div className="font-num tabular-nums tracking-wider text-5xl md:text-6xl">
               {fmt(dispSec, !isStopwatch && duration >= 3600)}
             </div>
           </div>
@@ -687,7 +701,7 @@ function BreathFocus() {
               onClick={start}
               className="glass-strong selected-strong glass-hover rounded-full px-6 py-2.5 text-sm flex items-center gap-2"
             >
-              <Play className="size-4" /> 开始
+              <Play className="size-4" /> {elapsedBeforeRef.current > 0 ? "恢复" : "开始"}
             </button>
           ) : (
             <button
@@ -705,6 +719,7 @@ function BreathFocus() {
           </button>
         </div>
       </GlassCard>
+
 
       {/* Breath ball */}
       <GlassCard className="py-10">
@@ -824,36 +839,49 @@ function BreathBall({ running }: { running: boolean }) {
     return () => cancelAnimationFrame(raf);
   }, [running, phases]);
 
-  const nums = Array.from({ length: state.seconds || 1 }, (_, i) => i + 1).join(" ");
-
   return (
-    <div className="flex flex-col items-center justify-center select-none">
+    <div className="flex flex-col items-center justify-center select-none py-4">
       <div
-        className="rounded-full flex items-center justify-center"
+        className="relative"
         style={{
-          width: 220,
-          height: 220,
+          width: 260,
+          height: 260,
           transform: `scale3d(${state.scale}, ${state.scale}, 1)`,
-          background:
-            "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.55), rgba(160,210,255,0.35) 50%, rgba(120,170,230,0.25) 100%)",
-          boxShadow: `0 0 ${state.glow * 60}px rgba(160,210,255,${state.glow}), inset 0 0 40px rgba(255,255,255,0.4)`,
-          transition: "transform 80ms linear, box-shadow 120ms linear",
+          transition: "transform 80ms linear",
           willChange: "transform",
         }}
       >
-        <div className="text-center">
-          <p className="font-display text-2xl mb-1">{state.label}</p>
-          {running && state.seconds > 0 && (
-            <p className="tabular-nums text-sm opacity-80">
-              {nums}
-              <span className="ml-2 font-display text-xl">{state.countdown}</span>
-            </p>
-          )}
+        {/* Soft halo — feathered solid color fading into background */}
+        <div
+          className="absolute inset-0 rounded-full"
+          style={{
+            background: "rgba(140, 195, 235, 0.85)",
+            filter: "blur(28px)",
+            opacity: 0.55 + state.glow * 0.35,
+            transition: "opacity 200ms linear",
+          }}
+        />
+        {/* Inner solid ball with soft edge */}
+        <div
+          className="absolute inset-4 rounded-full"
+          style={{
+            background: "rgba(180, 215, 240, 0.9)",
+            filter: "blur(6px)",
+          }}
+        />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center">
+            <p className="font-display text-2xl mb-1">{state.label}</p>
+            {running && state.seconds > 0 && (
+              <p className="font-num tabular-nums text-3xl opacity-90">{state.countdown}</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
 
 /* ============================================================
  * Celebration
@@ -885,7 +913,8 @@ function Celebration() {
       <div className="glass-strong rounded-3xl px-10 py-8 text-center animate-celebrate">
         <p className="text-5xl mb-3">🎉</p>
         <p className="font-display text-3xl mb-1">恭喜完成专注！</p>
-        <p className="text-xs opacity-70">为自己鼓个掌，你刚刚送给神经系统一段温柔的时光。</p>
+        <p className="text-xs opacity-70">给自己鼓个掌</p>
+
       </div>
     </div>
   );
