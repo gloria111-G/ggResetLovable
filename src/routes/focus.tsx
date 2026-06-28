@@ -127,18 +127,33 @@ function AffirmFocus() {
 
   const restored = useRef(false);
   const initial = useRef<ActiveSession | null>(null);
+  const initialSel = useRef<{ tag?: string; affId?: string | null } | null>(null);
   if (!restored.current && typeof window !== "undefined") {
     initial.current = loadSession(ACTIVE_SESSION_KEY_AFFIRM);
+    try {
+      const raw = localStorage.getItem(AFFIRM_SELECTION_KEY);
+      if (raw) initialSel.current = JSON.parse(raw);
+    } catch {}
     restored.current = true;
   }
 
   const [selectedTag, setSelectedTag] = useState<string>(
-    initial.current?.tag ?? tags[0] ?? "自我概念",
+    initial.current?.tag ?? initialSel.current?.tag ?? tags[0] ?? "自我概念",
   );
   // null = no specific affirmation selected (theme-level focus)
   const [selectedAff, setSelectedAff] = useState<string | null>(
-    initial.current?.affId ?? null,
+    initial.current?.affId ?? initialSel.current?.affId ?? null,
   );
+
+  // Persist selection separately so navigating away and back keeps the choice
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(
+      AFFIRM_SELECTION_KEY,
+      JSON.stringify({ tag: selectedTag, affId: selectedAff }),
+    );
+  }, [selectedTag, selectedAff]);
+
 
   const [duration, setDuration] = useState<number>(
     initial.current?.duration ?? settings.focusDuration ?? 300,
