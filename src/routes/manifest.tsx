@@ -349,3 +349,48 @@ function ManifestPage() {
     </AppShell>
   );
 }
+
+function SortableGoal({
+  id,
+  text,
+  onToggle,
+  onDelete,
+}: {
+  id: string;
+  text: string;
+  onToggle: () => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    touchAction: "none",
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="glass rounded-2xl px-3 py-3 flex items-center gap-2"
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="touch-none cursor-grab active:cursor-grabbing p-1 -ml-1 opacity-40 hover:opacity-80 shrink-0"
+        aria-label="拖拽排序"
+      >
+        <GripVertical className="size-4" />
+      </button>
+      <button
+        onClick={onToggle}
+        className="size-5 rounded-full border-2 border-current/40 flex items-center justify-center shrink-0"
+        aria-label="完成"
+      />
+      <span className="flex-1 text-sm">{text}</span>
+      <button onClick={onDelete} className="opacity-40 hover:opacity-100" aria-label="删除">
+        <Trash2 className="size-4" />
+      </button>
+    </div>
+  );
+}
