@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell, GlassCard } from "@/components/AppShell";
 import { WheelDuration } from "@/components/WheelDuration";
@@ -23,6 +23,8 @@ export const Route = createFileRoute("/focus")({
 
 type Tab = "affirm" | "breath";
 
+const AFFIRM_SELECTION_KEY = "gg_affirm_selection";
+
 function FocusPage() {
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window === "undefined") return "affirm";
@@ -33,28 +35,23 @@ function FocusPage() {
   }, [tab]);
 
   const titleSlot = (
-    <div className="flex items-center gap-2">
-      <Link to="/" className="font-display tracking-wide text-sm md:text-base opacity-70 hover:opacity-100">
-        GG RESET ·
-      </Link>
-      <div className="glass rounded-full p-0.5 flex">
-        <button
-          onClick={() => setTab("affirm")}
-          className={`rounded-full px-3 py-1.5 text-xs md:text-sm flex items-center gap-1 ${
-            tab === "affirm" ? "glass-strong selected-strong" : "opacity-70"
-          }`}
-        >
-          <Sparkles className="size-3.5" /> 肯定语
-        </button>
-        <button
-          onClick={() => setTab("breath")}
-          className={`rounded-full px-3 py-1.5 text-xs md:text-sm flex items-center gap-1 ${
-            tab === "breath" ? "glass-strong selected-strong" : "opacity-70"
-          }`}
-        >
-          <Wind className="size-3.5" /> 呼吸法
-        </button>
-      </div>
+    <div className="glass rounded-full p-0.5 flex">
+      <button
+        onClick={() => setTab("affirm")}
+        className={`rounded-full px-4 py-1.5 text-xs md:text-sm flex items-center gap-1 ${
+          tab === "affirm" ? "glass-strong selected-strong" : "opacity-70"
+        }`}
+      >
+        <Sparkles className="size-3.5" /> 肯定语
+      </button>
+      <button
+        onClick={() => setTab("breath")}
+        className={`rounded-full px-4 py-1.5 text-xs md:text-sm flex items-center gap-1 ${
+          tab === "breath" ? "glass-strong selected-strong" : "opacity-70"
+        }`}
+      >
+        <Wind className="size-3.5" /> 呼吸调整
+      </button>
     </div>
   );
 
@@ -64,6 +61,7 @@ function FocusPage() {
     </AppShell>
   );
 }
+
 
 /* ============================================================
  * Shared time-based session core
