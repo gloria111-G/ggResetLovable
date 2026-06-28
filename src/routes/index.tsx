@@ -30,7 +30,7 @@ function Home() {
               onClick={() => setShowGuide(true)}
               className="mt-3 text-xs opacity-70 hover:opacity-100 underline underline-offset-4 transition"
             >
-              第一次来？查看使用指南
+              第一次来？点击查看使用指南
             </button>
           )}
         </div>
