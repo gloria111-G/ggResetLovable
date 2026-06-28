@@ -4,9 +4,9 @@
 import type { WhiteNoise } from "./storage";
 
 const SOURCES: Record<Exclude<WhiteNoise, "off">, string> = {
-  waves: "https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav",
-  rain: "https://assets.mixkit.co/active_storage/sfx/2513/2513-84.wav",
-  fire: "https://assets.mixkit.co/active_storage/sfx/2432/2432-84.wav",
+  waves: "/海浪.mp3",
+  rain: "/雨声.mp3",
+  fire: "/篝火.mp3",
 };
 
 let audio: HTMLAudioElement | null = null;
@@ -19,8 +19,6 @@ function ensureAudio(): HTMLAudioElement | null {
     const el = new Audio();
     el.loop = true;
     el.preload = "auto";
-    el.crossOrigin = "anonymous";
-    // Mark as media playback (not ringer) on iOS / mobile.
     try {
       // @ts-expect-error - non-standard but widely supported
       el.mozAudioChannelType = "content";
@@ -45,11 +43,12 @@ export function setWhiteNoise(mode: WhiteNoise, volume: number) {
 
   if (mode !== currentMode) {
     currentMode = mode;
-    el.pause();
+    try {
+      el.pause();
+    } catch {}
     el.src = SOURCES[mode];
     el.load();
   }
-  // Resume / play
   const p = el.play();
   if (p && typeof p.catch === "function") p.catch(() => {});
 }
