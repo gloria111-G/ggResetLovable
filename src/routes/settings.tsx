@@ -389,7 +389,11 @@ function SettingsPage() {
           >
             <Coffee className="size-4" /> 打赏作者
           </button>
+          <p className="text-[11px] opacity-55 mt-3 leading-relaxed">
+            本网站所有功能均可免费使用，打赏非强制，不影响任何功能的使用。
+          </p>
         </GlassCard>
+
       </div>
 
       {showDonate && (
