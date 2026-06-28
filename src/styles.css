@@ -32,6 +32,8 @@
   --color-ring: var(--ring);
   --font-display: "Cormorant Garamond", "Noto Serif SC", serif;
   --font-sans: "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-num: "JetBrains Mono", "Inter", ui-monospace, "SF Mono", Menlo, monospace;
+
 }
 
 :root {
