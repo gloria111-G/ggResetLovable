@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState } from "react";
 import { AppShell, GlassCard } from "@/components/AppShell";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
@@ -10,6 +10,25 @@ import {
   uid,
 } from "@/lib/storage";
 import { Check, Plus, Trash2, Sparkles, GripVertical, X } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
 
 export const Route = createFileRoute("/manifest")({
   head: () => ({ meta: [{ title: "显化列表 · GG RESET" }] }),
