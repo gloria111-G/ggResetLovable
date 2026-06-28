@@ -684,11 +684,11 @@ function BreathFocus() {
       {/* Timer */}
       <GlassCard className="py-6">
         <p className="text-center text-[11px] tracking-widest opacity-50 mb-2">
-          {isStopwatch ? "正计时 · 秒表" : "倒计时"}
+          {isStopwatch ? "正计时 · 秒表" : running ? "倒计时" : elapsedBeforeRef.current > 0 ? "已暂停" : "倒计时"}
         </p>
-        {running || isStopwatch ? (
+        {running || isStopwatch || elapsedBeforeRef.current > 0 ? (
           <div className="text-center">
-            <div className="font-display tabular-nums tracking-wider text-5xl md:text-6xl">
+            <div className="font-num tabular-nums tracking-wider text-5xl md:text-6xl">
               {fmt(dispSec, !isStopwatch && duration >= 3600)}
             </div>
           </div>
@@ -701,7 +701,7 @@ function BreathFocus() {
               onClick={start}
               className="glass-strong selected-strong glass-hover rounded-full px-6 py-2.5 text-sm flex items-center gap-2"
             >
-              <Play className="size-4" /> 开始
+              <Play className="size-4" /> {elapsedBeforeRef.current > 0 ? "恢复" : "开始"}
             </button>
           ) : (
             <button
@@ -719,6 +719,7 @@ function BreathFocus() {
           </button>
         </div>
       </GlassCard>
+
 
       {/* Breath ball */}
       <GlassCard className="py-10">
