@@ -839,36 +839,49 @@ function BreathBall({ running }: { running: boolean }) {
     return () => cancelAnimationFrame(raf);
   }, [running, phases]);
 
-  const nums = Array.from({ length: state.seconds || 1 }, (_, i) => i + 1).join(" ");
-
   return (
-    <div className="flex flex-col items-center justify-center select-none">
+    <div className="flex flex-col items-center justify-center select-none py-4">
       <div
-        className="rounded-full flex items-center justify-center"
+        className="relative"
         style={{
-          width: 220,
-          height: 220,
+          width: 260,
+          height: 260,
           transform: `scale3d(${state.scale}, ${state.scale}, 1)`,
-          background:
-            "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.55), rgba(160,210,255,0.35) 50%, rgba(120,170,230,0.25) 100%)",
-          boxShadow: `0 0 ${state.glow * 60}px rgba(160,210,255,${state.glow}), inset 0 0 40px rgba(255,255,255,0.4)`,
-          transition: "transform 80ms linear, box-shadow 120ms linear",
+          transition: "transform 80ms linear",
           willChange: "transform",
         }}
       >
-        <div className="text-center">
-          <p className="font-display text-2xl mb-1">{state.label}</p>
-          {running && state.seconds > 0 && (
-            <p className="tabular-nums text-sm opacity-80">
-              {nums}
-              <span className="ml-2 font-display text-xl">{state.countdown}</span>
-            </p>
-          )}
+        {/* Soft halo — feathered solid color fading into background */}
+        <div
+          className="absolute inset-0 rounded-full"
+          style={{
+            background: "rgba(140, 195, 235, 0.85)",
+            filter: "blur(28px)",
+            opacity: 0.55 + state.glow * 0.35,
+            transition: "opacity 200ms linear",
+          }}
+        />
+        {/* Inner solid ball with soft edge */}
+        <div
+          className="absolute inset-4 rounded-full"
+          style={{
+            background: "rgba(180, 215, 240, 0.9)",
+            filter: "blur(6px)",
+          }}
+        />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center">
+            <p className="font-display text-2xl mb-1">{state.label}</p>
+            {running && state.seconds > 0 && (
+              <p className="font-num tabular-nums text-3xl opacity-90">{state.countdown}</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
 
 /* ============================================================
  * Celebration
