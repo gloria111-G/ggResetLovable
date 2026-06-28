@@ -98,32 +98,30 @@ function ManifestPage() {
     }
   }
 
-  // Drag and drop reordering for active goals
-  const dragId = useRef<string | null>(null);
-  function onDragStart(id: string) {
-    dragId.current = id;
-  }
-  function onDragOver(e: React.DragEvent) {
-    e.preventDefault();
-  }
-  function onDrop(targetId: string) {
-    const from = dragId.current;
-    dragId.current = null;
-    if (!from || from === targetId) return;
-    const order = active.map((g) => g.id);
-    const fromIdx = order.indexOf(from);
-    const toIdx = order.indexOf(targetId);
+  // dnd-kit sensors — supports pointer + touch + keyboard
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function handleDragEnd(e: DragEndEvent) {
+    const { active: a, over } = e;
+    if (!over || a.id === over.id) return;
+    const ids = active.map((g) => g.id);
+    const fromIdx = ids.indexOf(String(a.id));
+    const toIdx = ids.indexOf(String(over.id));
     if (fromIdx < 0 || toIdx < 0) return;
-    order.splice(toIdx, 0, ...order.splice(fromIdx, 1));
-    setGoals((prev) => {
-      const next = prev.map((g) => {
-        const idx = order.indexOf(g.id);
+    const newOrder = arrayMove(ids, fromIdx, toIdx);
+    setGoals((prev) =>
+      prev.map((g) => {
+        const idx = newOrder.indexOf(g.id);
         if (idx >= 0) return { ...g, order: idx + 1 };
         return g;
-      });
-      return next;
-    });
+      }),
+    );
   }
+
 
   function addAff() {
     if (!affInput.trim()) return;
