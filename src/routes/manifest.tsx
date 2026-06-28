@@ -276,32 +276,28 @@ function ManifestPage() {
             {active.length === 0 && (
               <p className="text-sm opacity-50 text-center py-4">还没有目标，写下第一个吧。</p>
             )}
-            {active.map((g) => (
-              <div
-                key={g.id}
-                draggable
-                onDragStart={() => onDragStart(g.id)}
-                onDragOver={onDragOver}
-                onDrop={() => onDrop(g.id)}
-                className="glass rounded-2xl px-3 py-3 flex items-center gap-2"
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={active.map((g) => g.id)}
+                strategy={verticalListSortingStrategy}
               >
-                <GripVertical className="size-4 opacity-40 cursor-grab shrink-0" />
-                <button
-                  onClick={() => toggleGoal(g.id)}
-                  className="size-5 rounded-full border-2 border-current/40 flex items-center justify-center shrink-0"
-                  aria-label="完成"
-                />
-                <span className="flex-1 text-sm">{g.text}</span>
-                <button
-                  onClick={() => setPending({ kind: "goal", id: g.id, text: g.text })}
-                  className="opacity-40 hover:opacity-100"
-                  aria-label="删除"
-                >
-                  <Trash2 className="size-4" />
-                </button>
-              </div>
-            ))}
+                {active.map((g) => (
+                  <SortableGoal
+                    key={g.id}
+                    id={g.id}
+                    text={g.text}
+                    onToggle={() => toggleGoal(g.id)}
+                    onDelete={() => setPending({ kind: "goal", id: g.id, text: g.text })}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
           </div>
+
 
           {done.length > 0 && (
             <div className="mt-6">
