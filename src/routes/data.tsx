@@ -87,7 +87,7 @@ function DataPage() {
 
 type AggTag = { tag: string; count: number; dur: number };
 
-function WeekCard({
+function TotalCard({
   data,
   breathSec,
 }: {
@@ -99,18 +99,18 @@ function WeekCard({
   const max = data.tags[0]?.count || 1;
   return (
     <GlassCard>
-      <p className="text-xs tracking-widest opacity-50 mb-3">近 7 天</p>
+      <p className="text-xs tracking-widest opacity-50 mb-3">累计</p>
       <div className="flex flex-wrap items-end gap-6 mb-6">
         <div>
-          <p className="font-display text-5xl tabular-nums">{data.count}</p>
+          <p className="font-num text-5xl tabular-nums">{data.count}</p>
           <p className="text-xs opacity-60 mt-1">次肯定语</p>
         </div>
         <div>
-          <p className="font-display text-5xl tabular-nums">{minutes}</p>
+          <p className="font-num text-5xl tabular-nums">{minutes}</p>
           <p className="text-xs opacity-60 mt-1">分钟专注</p>
         </div>
         <div>
-          <p className="font-display text-5xl tabular-nums">{breathMin}</p>
+          <p className="font-num text-5xl tabular-nums">{breathMin}</p>
           <p className="text-xs opacity-60 mt-1">分钟 · 神经系统调节</p>
         </div>
       </div>
@@ -129,7 +129,7 @@ function WeekCard({
                   style={{ width: `${(t.count / max) * 100}%` }}
                 />
               </div>
-              <span className="tabular-nums w-8 text-right">{t.count}</span>
+              <span className="tabular-nums w-8 text-right font-num">{t.count}</span>
             </div>
           ))}
         </div>
@@ -140,32 +140,43 @@ function WeekCard({
 
 function MonthCard({
   data,
+  monthTags,
   breathSec,
   logs,
 }: {
-  data: { count: number; dur: number; tags: AggTag[] };
+  data: { count: number; dur: number };
+  monthTags: AggTag[];
   breathSec: number;
   logs: FocusLog[];
 }) {
   const totalMin = Math.floor(data.dur / 60);
   const breathMin = Math.floor(breathSec / 60);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   return (
     <GlassCard>
       <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
         <p className="text-xs tracking-widest opacity-50">近 30 天</p>
         <p className="text-xs opacity-60">
-          <span className="font-display text-lg tabular-nums mr-1">{data.count}</span>次 ·
-          <span className="font-display text-lg tabular-nums mx-1">{totalMin}</span>分钟 ·
-          <span className="font-display text-lg tabular-nums mx-1">{breathMin}</span>分钟呼吸
+          <span className="font-num text-lg tabular-nums mr-1">{data.count}</span>次 ·
+          <span className="font-num text-lg tabular-nums mx-1">{totalMin}</span>分钟 ·
+          <span className="font-num text-lg tabular-nums mx-1">{breathMin}</span>分钟呼吸
         </p>
       </div>
       <div className="grid md:grid-cols-2 gap-6">
-        <CalendarHeat logs={logs} />
-        <PieChart tags={data.tags} />
+        <CalendarHeat logs={logs} onSelect={setSelectedDate} />
+        <PieChart tags={monthTags} />
       </div>
+      {selectedDate && (
+        <DayDetailModal
+          date={selectedDate}
+          logs={logs.filter((l) => l.date === selectedDate)}
+          onClose={() => setSelectedDate(null)}
+        />
+      )}
     </GlassCard>
   );
 }
+
 
 function CalendarHeat({ logs }: { logs: FocusLog[] }) {
   const days: { date: string; tag?: string; count: number }[] = [];
