@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { AppShell, GlassCard } from "@/components/AppShell";
 import { useLocal, type FocusLog } from "@/lib/storage";
+import { X } from "lucide-react";
 
 export const Route = createFileRoute("/data")({
   head: () => ({ meta: [{ title: "数据中心 · GG RESET" }] }),
@@ -22,21 +23,15 @@ const TAG_COLORS = [
 function DataPage() {
   const [logs] = useLocal<FocusLog[]>("gg_focus_logs", []);
 
-  // Affirmation logs only (breath logs are tracked separately)
   const affirmLogs = useMemo(() => logs.filter((l) => (l.kind ?? "affirm") === "affirm"), [logs]);
   const breathLogs = useMemo(() => logs.filter((l) => l.kind === "breath"), [logs]);
 
   const stats = useMemo(() => {
-    const now = Date.now();
-    const week = 7 * 86400_000;
-    const month = 30 * 86400_000;
-
-    const sum = (range: number) => {
-      const arr = affirmLogs.filter((l) => now - l.timestamp <= range);
-      const count = arr.reduce((s, l) => s + l.count, 0);
-      const dur = arr.reduce((s, l) => s + l.durationSec, 0);
+    const sumAll = () => {
+      const count = affirmLogs.reduce((s, l) => s + l.count, 0);
+      const dur = affirmLogs.reduce((s, l) => s + l.durationSec, 0);
       const tagMap = new Map<string, { count: number; dur: number }>();
-      arr.forEach((l) => {
+      affirmLogs.forEach((l) => {
         const cur = tagMap.get(l.tag) || { count: 0, dur: 0 };
         tagMap.set(l.tag, { count: cur.count + l.count, dur: cur.dur + l.durationSec });
       });
@@ -45,29 +40,50 @@ function DataPage() {
         .sort((a, b) => b.dur - a.dur);
       return { count, dur, tags };
     };
-
-    const breath = (range: number) => {
-      const arr = breathLogs.filter((l) => now - l.timestamp <= range);
-      return arr.reduce((s, l) => s + l.durationSec, 0);
-    };
+    const breathAll = breathLogs.reduce((s, l) => s + l.durationSec, 0);
+    // 30-day slice for the pie chart (kept short as before)
+    const month = 30 * 86400_000;
+    const now = Date.now();
+    const monthArr = affirmLogs.filter((l) => now - l.timestamp <= month);
+    const monthTagMap = new Map<string, { count: number; dur: number }>();
+    monthArr.forEach((l) => {
+      const cur = monthTagMap.get(l.tag) || { count: 0, dur: 0 };
+      monthTagMap.set(l.tag, { count: cur.count + l.count, dur: cur.dur + l.durationSec });
+    });
+    const monthTags = Array.from(monthTagMap.entries())
+      .map(([tag, v]) => ({ tag, ...v }))
+      .sort((a, b) => b.dur - a.dur);
+    const breathMonth = breathLogs
+      .filter((l) => now - l.timestamp <= month)
+      .reduce((s, l) => s + l.durationSec, 0);
 
     return {
-      week: sum(week),
-      month: sum(month),
-      breathWeek: breath(week),
-      breathMonth: breath(month),
+      all: sumAll(),
+      breathAll,
+      monthTags,
+      monthAffirm: {
+        count: monthArr.reduce((s, l) => s + l.count, 0),
+        dur: monthArr.reduce((s, l) => s + l.durationSec, 0),
+      },
+      breathMonth,
     };
   }, [affirmLogs, breathLogs]);
 
   return (
     <AppShell title="数据中心">
       <div className="grid gap-6">
-        <WeekCard data={stats.week} breathSec={stats.breathWeek} />
-        <MonthCard data={stats.month} breathSec={stats.breathMonth} logs={affirmLogs} />
+        <TotalCard data={stats.all} breathSec={stats.breathAll} />
+        <MonthCard
+          data={stats.monthAffirm}
+          monthTags={stats.monthTags}
+          breathSec={stats.breathMonth}
+          logs={logs}
+        />
       </div>
     </AppShell>
   );
 }
+
 
 type AggTag = { tag: string; count: number; dur: number };
 
