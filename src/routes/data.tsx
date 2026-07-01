@@ -308,3 +308,76 @@ function PieChart({ tags }: { tags: AggTag[] }) {
     </div>
   );
 }
+
+function DayDetailModal({
+  date,
+  logs,
+  onClose,
+}: {
+  date: string;
+  logs: FocusLog[];
+  onClose: () => void;
+}) {
+  const affirm = logs.filter((l) => (l.kind ?? "affirm") === "affirm");
+  const breath = logs.filter((l) => l.kind === "breath");
+  const totalCount = affirm.reduce((s, l) => s + l.count, 0);
+  const totalMin = Math.floor(affirm.reduce((s, l) => s + l.durationSec, 0) / 60);
+  const breathMin = Math.floor(breath.reduce((s, l) => s + l.durationSec, 0) / 60);
+  const tagMap = new Map<string, { count: number; dur: number }>();
+  affirm.forEach((l) => {
+    const cur = tagMap.get(l.tag) || { count: 0, dur: 0 };
+    tagMap.set(l.tag, { count: cur.count + l.count, dur: cur.dur + l.durationSec });
+  });
+  const tags = Array.from(tagMap.entries()).sort((a, b) => b[1].count - a[1].count);
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="glass-strong rounded-3xl p-6 w-full max-w-md relative"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 glass rounded-full size-9 flex items-center justify-center"
+          aria-label="关闭"
+        >
+          <X className="size-4" />
+        </button>
+        <p className="text-xs opacity-60 mb-1">{date}</p>
+        <h3 className="font-display text-xl mb-4">当日专注</h3>
+        <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="glass rounded-2xl p-3 text-center">
+            <p className="font-num text-2xl tabular-nums">{totalCount}</p>
+            <p className="text-[10px] opacity-60 mt-1">次肯定语</p>
+          </div>
+          <div className="glass rounded-2xl p-3 text-center">
+            <p className="font-num text-2xl tabular-nums">{totalMin}</p>
+            <p className="text-[10px] opacity-60 mt-1">分钟专注</p>
+          </div>
+          <div className="glass rounded-2xl p-3 text-center">
+            <p className="font-num text-2xl tabular-nums">{breathMin}</p>
+            <p className="text-[10px] opacity-60 mt-1">分钟呼吸</p>
+          </div>
+        </div>
+        {tags.length > 0 ? (
+          <div className="space-y-1.5">
+            <p className="text-xs opacity-60 mb-1">主题分布</p>
+            {tags.map(([tag, v]) => (
+              <div key={tag} className="flex items-center gap-2 text-xs glass rounded-xl px-3 py-2">
+                <span className="flex-1">#{tag}</span>
+                <span className="tabular-nums opacity-70 font-num">
+                  {Math.floor(v.dur / 60)}分
+                </span>
+                <span className="tabular-nums opacity-70 font-num">×{v.count}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs opacity-60">当日暂无肯定语专注记录。</p>
+        )}
+      </div>
+    </div>
+  );
+}
