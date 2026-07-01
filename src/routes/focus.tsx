@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell, GlassCard } from "@/components/AppShell";
 import { WheelDuration } from "@/components/WheelDuration";
-import { useApp, playFeedback } from "@/lib/app-context";
+import { useApp, playFeedback, unlockAudio } from "@/lib/app-context";
 import {
   useLocal,
   upsertDailyLog,
@@ -13,7 +13,7 @@ import {
   ACTIVE_SESSION_KEY_AFFIRM,
   ACTIVE_SESSION_KEY_BREATH,
 } from "@/lib/storage";
-import { setWhiteNoise, stopWhiteNoise, getCurrentWhiteNoise } from "@/lib/white-noise";
+import { setWhiteNoise, stopWhiteNoise, getCurrentWhiteNoise, unlockWhiteNoise } from "@/lib/white-noise";
 import { Play, Pause, RotateCcw, Plus, Sparkles, Wind } from "lucide-react";
 
 export const Route = createFileRoute("/focus")({
