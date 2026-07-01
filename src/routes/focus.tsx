@@ -324,6 +324,12 @@ function AffirmFocus() {
   }
 
   function start() {
+    // Unlock audio pipelines on the user gesture (iOS Safari requirement)
+    unlockAudio();
+    unlockWhiteNoise();
+    if (settings.whiteNoise !== "off") {
+      setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
+    }
     if (!isStopwatch && elapsedBeforeRef.current >= duration) {
       elapsedBeforeRef.current = 0;
     }
