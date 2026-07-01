@@ -39,76 +39,70 @@ export function useApp() {
   return v;
 }
 
-// Pre-generated short "tick" WAV data URI — plays through media channel on iOS.
-// Pool of audio elements so rapid-fire counts overlap without delay.
-const POOL_SIZE = 8;
-let pool: HTMLAudioElement[] | null = null;
-let poolIdx = 0;
-let dataUrlCache: string | null = null;
+// ---------- Counter tick sound ----------
+// Uses Web Audio API with a pre-built AudioBuffer for zero-latency,
+// non-blocking playback. Every tick spawns a fresh BufferSource so
+// rapid calls overlap instead of queueing.
 
-function buildTickDataUrl(): string {
-  if (dataUrlCache) return dataUrlCache;
-  const sr = 22050;
-  const len = Math.floor(sr * 0.06);
-  const buf = new ArrayBuffer(44 + len * 2);
-  const dv = new DataView(buf);
-  const writeStr = (off: number, s: string) =>
-    [...s].forEach((c, i) => dv.setUint8(off + i, c.charCodeAt(0)));
-  writeStr(0, "RIFF");
-  dv.setUint32(4, 36 + len * 2, true);
-  writeStr(8, "WAVE");
-  writeStr(12, "fmt ");
-  dv.setUint32(16, 16, true);
-  dv.setUint16(20, 1, true);
-  dv.setUint16(22, 1, true);
-  dv.setUint32(24, sr, true);
-  dv.setUint32(28, sr * 2, true);
-  dv.setUint16(32, 2, true);
-  dv.setUint16(34, 16, true);
-  writeStr(36, "data");
-  dv.setUint32(40, len * 2, true);
-  for (let i = 0; i < len; i++) {
-    const t = i / sr;
-    const env = Math.exp(-t * 32);
-    const v = Math.sin(2 * Math.PI * 880 * t) * env * 0.55;
-    dv.setInt16(44 + i * 2, Math.max(-1, Math.min(1, v)) * 32767, true);
-  }
-  const bytes = new Uint8Array(buf);
-  let bin = "";
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  dataUrlCache = "data:audio/wav;base64," + btoa(bin);
-  return dataUrlCache;
-}
+let audioCtx: AudioContext | null = null;
+let tickBuffer: AudioBuffer | null = null;
+let tickGain: GainNode | null = null;
 
-function ensurePool() {
+function getCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
-  if (pool) return pool;
+  if (audioCtx) return audioCtx;
   try {
-    const url = buildTickDataUrl();
-    pool = Array.from({ length: POOL_SIZE }, () => {
-      const a = new Audio(url);
-      a.preload = "auto";
-      a.setAttribute("playsinline", "true");
-      a.setAttribute("x-webkit-playsinline", "true");
-      return a;
-    });
-    return pool;
+    const AC =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext })
+        .webkitAudioContext;
+    if (!AC) return null;
+    audioCtx = new AC();
+    tickGain = audioCtx.createGain();
+    tickGain.gain.value = 0.55;
+    tickGain.connect(audioCtx.destination);
   } catch {
     return null;
   }
+  return audioCtx;
+}
+
+function buildTickBuffer(ctx: AudioContext): AudioBuffer {
+  const sr = ctx.sampleRate;
+  const len = Math.floor(sr * 0.06);
+  const buf = ctx.createBuffer(1, len, sr);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) {
+    const t = i / sr;
+    const env = Math.exp(-t * 32);
+    data[i] = Math.sin(2 * Math.PI * 880 * t) * env;
+  }
+  return buf;
+}
+
+/** Call from a user-gesture handler (e.g. Start button) to unlock audio on iOS. */
+export function unlockAudio() {
+  const ctx = getCtx();
+  if (!ctx) return;
+  if (ctx.state === "suspended") {
+    ctx.resume().catch(() => {});
+  }
+  if (!tickBuffer) tickBuffer = buildTickBuffer(ctx);
 }
 
 export function playFeedback(settings: Settings) {
   if (!settings.sound) return;
-  const p = ensurePool();
-  if (!p) return;
-  const a = p[poolIdx];
-  poolIdx = (poolIdx + 1) % p.length;
+  const ctx = getCtx();
+  if (!ctx || !tickGain) return;
+  if (ctx.state === "suspended") ctx.resume().catch(() => {});
+  if (!tickBuffer) tickBuffer = buildTickBuffer(ctx);
   try {
-    a.currentTime = 0;
-    const pr = a.play();
-    if (pr && typeof pr.catch === "function") pr.catch(() => {});
+    const src = ctx.createBufferSource();
+    src.buffer = tickBuffer;
+    src.connect(tickGain);
+    src.start(0);
   } catch {}
 }
+
 
 
