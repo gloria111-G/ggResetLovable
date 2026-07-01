@@ -178,7 +178,7 @@ function MonthCard({
 }
 
 
-function CalendarHeat({ logs }: { logs: FocusLog[] }) {
+function CalendarHeat({ logs, onSelect }: { logs: FocusLog[]; onSelect?: (date: string) => void }) {
   const days: { date: string; tag?: string; count: number }[] = [];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
