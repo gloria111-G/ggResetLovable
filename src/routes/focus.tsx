@@ -804,98 +804,93 @@ function BreathBall({ running }: { running: boolean }) {
     ].filter((p) => p.sec > 0);
   }, [settings.breathMode, settings.customBreath]);
 
-  const cycleStart = useRef(Date.now());
-  const [state, setState] = useState({
-    label: "准备",
-    seconds: 0,
-    countdown: 0,
-    scale: 1,
-    glow: 0.3,
-  });
+  const [phaseIdx, setPhaseIdx] = useState(0);
+  const [countdown, setCountdown] = useState(0);
+  const phaseStartRef = useRef(Date.now());
 
+  // Advance phases on real wall-clock time so the CSS transform transition
+  // duration matches phase.sec exactly — smooth, GPU-accelerated scale().
   useEffect(() => {
     if (!running) {
-      setState({ label: "准备", seconds: 0, countdown: 0, scale: 1, glow: 0.3 });
+      setPhaseIdx(0);
+      setCountdown(0);
       return;
     }
-    cycleStart.current = Date.now();
-    const total = phases.reduce((s, p) => s + p.sec, 0) || 1;
+    setPhaseIdx(0);
+    phaseStartRef.current = Date.now();
+    let idx = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const schedule = () => {
+      const cur = phases[idx];
+      timer = setTimeout(() => {
+        idx = (idx + 1) % phases.length;
+        setPhaseIdx(idx);
+        phaseStartRef.current = Date.now();
+        schedule();
+      }, cur.sec * 1000);
+    };
+    schedule();
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [running, phases]);
+
+  // Lightweight countdown text (rAF) — only mutates a small text node.
+  useEffect(() => {
+    if (!running) return;
     let raf = 0;
     const tick = () => {
-      const elapsed = ((Date.now() - cycleStart.current) / 1000) % total;
-      let acc = 0;
-      let current = phases[0];
-      let phaseT = 0;
-      for (const p of phases) {
-        if (elapsed < acc + p.sec) {
-          current = p;
-          phaseT = elapsed - acc;
-          break;
-        }
-        acc += p.sec;
-      }
-      const k = current.sec ? phaseT / current.sec : 0;
-      let scale = 1;
-      let glow = 0.4;
-      if (current.kind === "in") {
-        scale = 0.7 + k * 0.45;
-        glow = 0.3 + k * 0.6;
-      } else if (current.kind === "out") {
-        scale = 1.15 - k * 0.45;
-        glow = 0.9 - k * 0.6;
-      } else {
-        scale = 1.15;
-        glow = 0.7;
-      }
-      const countdown = Math.max(1, Math.ceil(current.sec - phaseT));
-      setState({
-        label: current.label,
-        seconds: current.sec,
-        countdown,
-        scale,
-        glow,
-      });
+      const cur = phases[phaseIdx];
+      const t = (Date.now() - phaseStartRef.current) / 1000;
+      setCountdown(Math.max(1, Math.ceil(cur.sec - t)));
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [running, phases]);
+  }, [running, phaseIdx, phases]);
+
+  const cur = phases[phaseIdx] ?? phases[0];
+  // Target scale of *this* phase; transition length = phase.sec.
+  let targetScale = 1;
+  if (running) {
+    if (cur.kind === "in") targetScale = 1.35;
+    else if (cur.kind === "out") targetScale = 0.7;
+    else {
+      // hold: keep whatever the previous phase ended at
+      const prev = phases[(phaseIdx - 1 + phases.length) % phases.length];
+      targetScale = prev?.kind === "in" ? 1.35 : prev?.kind === "out" ? 0.7 : 1;
+    }
+  }
+  const transitionDur = running ? cur.sec : 0.4;
+  const easing =
+    cur.kind === "hold"
+      ? "linear"
+      : "cubic-bezier(0.42, 0, 0.58, 1)"; // smooth ease-in-out for inhale/exhale
 
   return (
-    <div className="flex flex-col items-center justify-center select-none py-4">
-      <div
-        className="relative"
-        style={{
-          width: 260,
-          height: 260,
-          transform: `scale3d(${state.scale}, ${state.scale}, 1)`,
-          transition: "transform 80ms linear",
-          willChange: "transform",
-        }}
-      >
-        {/* Soft halo — feathered solid color fading into background */}
+    <div className="flex flex-col items-center justify-center select-none py-6">
+      <div className="relative" style={{ width: 260, height: 260 }}>
         <div
-          className="absolute inset-0 rounded-full"
+          className="absolute inset-0 rounded-full flex items-center justify-center"
           style={{
-            background: "rgba(140, 195, 235, 0.85)",
-            filter: "blur(28px)",
-            opacity: 0.55 + state.glow * 0.35,
-            transition: "opacity 200ms linear",
+            background:
+              "radial-gradient(circle at 35% 30%, rgba(220,240,255,0.95) 0%, rgba(150,200,235,0.85) 55%, rgba(110,170,215,0.75) 100%)",
+            boxShadow:
+              "0 20px 60px rgba(60, 110, 170, 0.35), inset 0 0 40px rgba(255,255,255,0.25)",
+            transform: `scale3d(${targetScale}, ${targetScale}, 1)`,
+            transition: `transform ${transitionDur}s ${easing}`,
+            willChange: "transform",
+            backfaceVisibility: "hidden",
           }}
-        />
-        {/* Inner solid ball with soft edge */}
-        <div
-          className="absolute inset-4 rounded-full"
-          style={{
-            background: "rgba(180, 215, 240, 0.9)",
-            filter: "blur(6px)",
-          }}
-        />
-        <div className="absolute inset-0 flex items-center justify-center">
+        >
           <div className="text-center">
-            <p className="font-display text-2xl mb-1">{state.label}</p>
-            {running && state.seconds > 0 && (
-              <p className="font-num tabular-nums text-3xl opacity-90">{state.countdown}</p>
+            <p className="font-display text-2xl mb-1 text-white drop-shadow">
+              {running ? cur.label : "准备"}
+            </p>
+            {running && cur.sec > 0 && (
+              <p className="font-num tabular-nums text-3xl text-white/95 drop-shadow">
+                {countdown}
+              </p>
             )}
           </div>
         </div>
@@ -903,6 +898,7 @@ function BreathBall({ running }: { running: boolean }) {
     </div>
   );
 }
+
 
 
 /* ============================================================
