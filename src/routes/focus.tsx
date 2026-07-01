@@ -750,9 +750,10 @@ function BreathFocus() {
         </p>
       </GlassCard>
 
-      {/* Tips */}
+      {/* Neural regulation intro + Tips */}
       <GlassCard>
-        <h2 className="font-display text-xl mb-4">神经系统调节 · Tips</h2>
+        <h2 className="font-display text-xl mb-3">神经系统调节</h2>
+        <p className="text-sm leading-relaxed opacity-85 mb-5">{NEURAL_INTRO}</p>
         <div className="grid md:grid-cols-2 gap-3">
           {TIPS.map((t) => (
             <div key={t.title} className="glass rounded-2xl p-4">
@@ -762,6 +763,7 @@ function BreathFocus() {
           ))}
         </div>
       </GlassCard>
+
 
       {celebrated && <Celebration />}
     </div>
