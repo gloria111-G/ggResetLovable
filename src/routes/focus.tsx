@@ -118,12 +118,14 @@ function AffirmFocus() {
 
   const [affirmations, setAffs] = useLocal<Affirmation[]>("gg_affirmations", []);
   const [logs, setLogs] = useLocal<FocusLog[]>("gg_focus_logs", []);
+  const [customTags] = useLocal<string[]>("gg_tags", []);
 
   const tags = useMemo(() => {
     const set = new Set<string>(DEFAULT_TAGS);
+    customTags.forEach((t) => set.add(t));
     affirmations.forEach((a) => set.add(a.tag));
     return Array.from(set);
-  }, [affirmations]);
+  }, [affirmations, customTags]);
 
   const restored = useRef(false);
   const initial = useRef<ActiveSession | null>(null);
