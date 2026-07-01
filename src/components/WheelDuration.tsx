@@ -95,9 +95,9 @@ function Column({
           <div
             key={v}
             onClick={() => clickValue(v)}
-            className={`snap-center flex items-center justify-center tabular-nums transition-opacity ${
+            className={`snap-center flex items-center justify-center font-num tabular-nums transition-opacity ${
               v === value
-                ? "opacity-100 font-display text-3xl"
+                ? "opacity-100 text-3xl"
                 : "opacity-40 text-base hover:opacity-70"
             }`}
             style={{ height: ITEM_H }}

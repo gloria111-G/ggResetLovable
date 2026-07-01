@@ -32,7 +32,7 @@
   --color-ring: var(--ring);
   --font-display: "Cormorant Garamond", "Noto Serif SC", serif;
   --font-sans: "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
-  --font-num: "JetBrains Mono", "Inter", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-num: "DengXian", "等线", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", "Segoe UI", Arial, sans-serif;
 
 }
 
@@ -136,8 +136,9 @@
 
 @utility font-num {
   font-family: var(--font-num);
-  font-weight: 300;
-  letter-spacing: -0.01em;
+  font-weight: 400;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 

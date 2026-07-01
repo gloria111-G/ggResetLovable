@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { AppShell, GlassCard } from "@/components/AppShell";
 import { useLocal, type FocusLog } from "@/lib/storage";
+import { X } from "lucide-react";
 
 export const Route = createFileRoute("/data")({
   head: () => ({ meta: [{ title: "数据中心 · GG RESET" }] }),
@@ -22,21 +23,15 @@ const TAG_COLORS = [
 function DataPage() {
   const [logs] = useLocal<FocusLog[]>("gg_focus_logs", []);
 
-  // Affirmation logs only (breath logs are tracked separately)
   const affirmLogs = useMemo(() => logs.filter((l) => (l.kind ?? "affirm") === "affirm"), [logs]);
   const breathLogs = useMemo(() => logs.filter((l) => l.kind === "breath"), [logs]);
 
   const stats = useMemo(() => {
-    const now = Date.now();
-    const week = 7 * 86400_000;
-    const month = 30 * 86400_000;
-
-    const sum = (range: number) => {
-      const arr = affirmLogs.filter((l) => now - l.timestamp <= range);
-      const count = arr.reduce((s, l) => s + l.count, 0);
-      const dur = arr.reduce((s, l) => s + l.durationSec, 0);
+    const sumAll = () => {
+      const count = affirmLogs.reduce((s, l) => s + l.count, 0);
+      const dur = affirmLogs.reduce((s, l) => s + l.durationSec, 0);
       const tagMap = new Map<string, { count: number; dur: number }>();
-      arr.forEach((l) => {
+      affirmLogs.forEach((l) => {
         const cur = tagMap.get(l.tag) || { count: 0, dur: 0 };
         tagMap.set(l.tag, { count: cur.count + l.count, dur: cur.dur + l.durationSec });
       });
@@ -45,33 +40,54 @@ function DataPage() {
         .sort((a, b) => b.dur - a.dur);
       return { count, dur, tags };
     };
-
-    const breath = (range: number) => {
-      const arr = breathLogs.filter((l) => now - l.timestamp <= range);
-      return arr.reduce((s, l) => s + l.durationSec, 0);
-    };
+    const breathAll = breathLogs.reduce((s, l) => s + l.durationSec, 0);
+    // 30-day slice for the pie chart (kept short as before)
+    const month = 30 * 86400_000;
+    const now = Date.now();
+    const monthArr = affirmLogs.filter((l) => now - l.timestamp <= month);
+    const monthTagMap = new Map<string, { count: number; dur: number }>();
+    monthArr.forEach((l) => {
+      const cur = monthTagMap.get(l.tag) || { count: 0, dur: 0 };
+      monthTagMap.set(l.tag, { count: cur.count + l.count, dur: cur.dur + l.durationSec });
+    });
+    const monthTags = Array.from(monthTagMap.entries())
+      .map(([tag, v]) => ({ tag, ...v }))
+      .sort((a, b) => b.dur - a.dur);
+    const breathMonth = breathLogs
+      .filter((l) => now - l.timestamp <= month)
+      .reduce((s, l) => s + l.durationSec, 0);
 
     return {
-      week: sum(week),
-      month: sum(month),
-      breathWeek: breath(week),
-      breathMonth: breath(month),
+      all: sumAll(),
+      breathAll,
+      monthTags,
+      monthAffirm: {
+        count: monthArr.reduce((s, l) => s + l.count, 0),
+        dur: monthArr.reduce((s, l) => s + l.durationSec, 0),
+      },
+      breathMonth,
     };
   }, [affirmLogs, breathLogs]);
 
   return (
     <AppShell title="数据中心">
       <div className="grid gap-6">
-        <WeekCard data={stats.week} breathSec={stats.breathWeek} />
-        <MonthCard data={stats.month} breathSec={stats.breathMonth} logs={affirmLogs} />
+        <TotalCard data={stats.all} breathSec={stats.breathAll} />
+        <MonthCard
+          data={stats.monthAffirm}
+          monthTags={stats.monthTags}
+          breathSec={stats.breathMonth}
+          logs={logs}
+        />
       </div>
     </AppShell>
   );
 }
 
+
 type AggTag = { tag: string; count: number; dur: number };
 
-function WeekCard({
+function TotalCard({
   data,
   breathSec,
 }: {
@@ -83,18 +99,18 @@ function WeekCard({
   const max = data.tags[0]?.count || 1;
   return (
     <GlassCard>
-      <p className="text-xs tracking-widest opacity-50 mb-3">近 7 天</p>
+      <p className="text-xs tracking-widest opacity-50 mb-3">累计</p>
       <div className="flex flex-wrap items-end gap-6 mb-6">
         <div>
-          <p className="font-display text-5xl tabular-nums">{data.count}</p>
+          <p className="font-num text-5xl tabular-nums">{data.count}</p>
           <p className="text-xs opacity-60 mt-1">次肯定语</p>
         </div>
         <div>
-          <p className="font-display text-5xl tabular-nums">{minutes}</p>
+          <p className="font-num text-5xl tabular-nums">{minutes}</p>
           <p className="text-xs opacity-60 mt-1">分钟专注</p>
         </div>
         <div>
-          <p className="font-display text-5xl tabular-nums">{breathMin}</p>
+          <p className="font-num text-5xl tabular-nums">{breathMin}</p>
           <p className="text-xs opacity-60 mt-1">分钟 · 神经系统调节</p>
         </div>
       </div>
@@ -113,7 +129,7 @@ function WeekCard({
                   style={{ width: `${(t.count / max) * 100}%` }}
                 />
               </div>
-              <span className="tabular-nums w-8 text-right">{t.count}</span>
+              <span className="tabular-nums w-8 text-right font-num">{t.count}</span>
             </div>
           ))}
         </div>
@@ -124,34 +140,45 @@ function WeekCard({
 
 function MonthCard({
   data,
+  monthTags,
   breathSec,
   logs,
 }: {
-  data: { count: number; dur: number; tags: AggTag[] };
+  data: { count: number; dur: number };
+  monthTags: AggTag[];
   breathSec: number;
   logs: FocusLog[];
 }) {
   const totalMin = Math.floor(data.dur / 60);
   const breathMin = Math.floor(breathSec / 60);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   return (
     <GlassCard>
       <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
         <p className="text-xs tracking-widest opacity-50">近 30 天</p>
         <p className="text-xs opacity-60">
-          <span className="font-display text-lg tabular-nums mr-1">{data.count}</span>次 ·
-          <span className="font-display text-lg tabular-nums mx-1">{totalMin}</span>分钟 ·
-          <span className="font-display text-lg tabular-nums mx-1">{breathMin}</span>分钟呼吸
+          <span className="font-num text-lg tabular-nums mr-1">{data.count}</span>次 ·
+          <span className="font-num text-lg tabular-nums mx-1">{totalMin}</span>分钟 ·
+          <span className="font-num text-lg tabular-nums mx-1">{breathMin}</span>分钟呼吸
         </p>
       </div>
       <div className="grid md:grid-cols-2 gap-6">
-        <CalendarHeat logs={logs} />
-        <PieChart tags={data.tags} />
+        <CalendarHeat logs={logs} onSelect={setSelectedDate} />
+        <PieChart tags={monthTags} />
       </div>
+      {selectedDate && (
+        <DayDetailModal
+          date={selectedDate}
+          logs={logs.filter((l) => l.date === selectedDate)}
+          onClose={() => setSelectedDate(null)}
+        />
+      )}
     </GlassCard>
   );
 }
 
-function CalendarHeat({ logs }: { logs: FocusLog[] }) {
+
+function CalendarHeat({ logs, onSelect }: { logs: FocusLog[]; onSelect?: (date: string) => void }) {
   const days: { date: string; tag?: string; count: number }[] = [];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -191,14 +218,16 @@ function CalendarHeat({ logs }: { logs: FocusLog[] }) {
           const dayNum = Number(d.date.slice(8, 10));
           const c = colorFor(d.tag);
           return (
-            <div
+            <button
               key={i}
-              className="aspect-square rounded-lg glass flex items-center justify-center text-[10px] relative"
+              type="button"
+              onClick={() => d.tag && onSelect?.(d.date)}
+              className={`aspect-square rounded-lg glass flex items-center justify-center text-[10px] relative transition ${d.tag ? "hover:scale-105 cursor-pointer" : "cursor-default"}`}
               style={c ? { background: c + "55", borderColor: c } : undefined}
               title={d.tag ? `${d.date} · #${d.tag} · ${d.count}` : d.date}
             >
-              <span className={d.tag ? "font-medium" : "opacity-50"}>{dayNum}</span>
-            </div>
+              <span className={d.tag ? "font-medium font-num" : "opacity-50 font-num"}>{dayNum}</span>
+            </button>
           );
         })}
       </div>
@@ -275,6 +304,79 @@ function PieChart({ tags }: { tags: AggTag[] }) {
             );
           })}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DayDetailModal({
+  date,
+  logs,
+  onClose,
+}: {
+  date: string;
+  logs: FocusLog[];
+  onClose: () => void;
+}) {
+  const affirm = logs.filter((l) => (l.kind ?? "affirm") === "affirm");
+  const breath = logs.filter((l) => l.kind === "breath");
+  const totalCount = affirm.reduce((s, l) => s + l.count, 0);
+  const totalMin = Math.floor(affirm.reduce((s, l) => s + l.durationSec, 0) / 60);
+  const breathMin = Math.floor(breath.reduce((s, l) => s + l.durationSec, 0) / 60);
+  const tagMap = new Map<string, { count: number; dur: number }>();
+  affirm.forEach((l) => {
+    const cur = tagMap.get(l.tag) || { count: 0, dur: 0 };
+    tagMap.set(l.tag, { count: cur.count + l.count, dur: cur.dur + l.durationSec });
+  });
+  const tags = Array.from(tagMap.entries()).sort((a, b) => b[1].count - a[1].count);
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="glass-strong rounded-3xl p-6 w-full max-w-md relative"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 glass rounded-full size-9 flex items-center justify-center"
+          aria-label="关闭"
+        >
+          <X className="size-4" />
+        </button>
+        <p className="text-xs opacity-60 mb-1">{date}</p>
+        <h3 className="font-display text-xl mb-4">当日专注</h3>
+        <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="glass rounded-2xl p-3 text-center">
+            <p className="font-num text-2xl tabular-nums">{totalCount}</p>
+            <p className="text-[10px] opacity-60 mt-1">次肯定语</p>
+          </div>
+          <div className="glass rounded-2xl p-3 text-center">
+            <p className="font-num text-2xl tabular-nums">{totalMin}</p>
+            <p className="text-[10px] opacity-60 mt-1">分钟专注</p>
+          </div>
+          <div className="glass rounded-2xl p-3 text-center">
+            <p className="font-num text-2xl tabular-nums">{breathMin}</p>
+            <p className="text-[10px] opacity-60 mt-1">分钟呼吸</p>
+          </div>
+        </div>
+        {tags.length > 0 ? (
+          <div className="space-y-1.5">
+            <p className="text-xs opacity-60 mb-1">主题分布</p>
+            {tags.map(([tag, v]) => (
+              <div key={tag} className="flex items-center gap-2 text-xs glass rounded-xl px-3 py-2">
+                <span className="flex-1">#{tag}</span>
+                <span className="tabular-nums opacity-70 font-num">
+                  {Math.floor(v.dur / 60)}分
+                </span>
+                <span className="tabular-nums opacity-70 font-num">×{v.count}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs opacity-60">当日暂无肯定语专注记录。</p>
+        )}
       </div>
     </div>
   );
