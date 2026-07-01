@@ -218,14 +218,16 @@ function CalendarHeat({ logs, onSelect }: { logs: FocusLog[]; onSelect?: (date: 
           const dayNum = Number(d.date.slice(8, 10));
           const c = colorFor(d.tag);
           return (
-            <div
+            <button
               key={i}
-              className="aspect-square rounded-lg glass flex items-center justify-center text-[10px] relative"
+              type="button"
+              onClick={() => d.tag && onSelect?.(d.date)}
+              className={`aspect-square rounded-lg glass flex items-center justify-center text-[10px] relative transition ${d.tag ? "hover:scale-105 cursor-pointer" : "cursor-default"}`}
               style={c ? { background: c + "55", borderColor: c } : undefined}
               title={d.tag ? `${d.date} · #${d.tag} · ${d.count}` : d.date}
             >
-              <span className={d.tag ? "font-medium" : "opacity-50"}>{dayNum}</span>
-            </div>
+              <span className={d.tag ? "font-medium font-num" : "opacity-50 font-num"}>{dayNum}</span>
+            </button>
           );
         })}
       </div>
