@@ -654,6 +654,11 @@ function BreathFocus() {
   }, [settings.whiteNoise, settings.whiteNoiseVolume]);
 
   function start() {
+    unlockAudio();
+    unlockWhiteNoise();
+    if (settings.whiteNoise !== "off") {
+      setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
+    }
     if (!isStopwatch && elapsedBeforeRef.current >= duration) {
       elapsedBeforeRef.current = 0;
     }
