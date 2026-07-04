@@ -347,6 +347,24 @@ function ManifestPage() {
         onConfirm={confirmDelete}
         onClose={() => setPending(null)}
       />
+
+      {editingAff && (
+        <AffSettingsModal
+          aff={editingAff}
+          onClose={() => setEditingAff(null)}
+          onSave={(newCount) => {
+            setAffs((prev) =>
+              prev.map((x) => (x.id === editingAff.id ? { ...x, count: newCount } : x)),
+            );
+            setEditingAff(null);
+          }}
+          onDelete={() => {
+            const target = editingAff;
+            setEditingAff(null);
+            setPending({ kind: "aff", id: target.id, text: target.text });
+          }}
+        />
+      )}
     </AppShell>
   );
 }
@@ -392,6 +410,65 @@ function SortableGoal({
       <button onClick={onDelete} className="opacity-40 hover:opacity-100" aria-label="删除">
         <Trash2 className="size-4" />
       </button>
+    </div>
+  );
+}
+
+function AffSettingsModal({
+  aff,
+  onClose,
+  onSave,
+  onDelete,
+}: {
+  aff: Affirmation;
+  onClose: () => void;
+  onSave: (count: number) => void;
+  onDelete: () => void;
+}) {
+  const [val, setVal] = useState<string>(String(aff.count ?? 0));
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="glass-strong rounded-3xl p-6 w-full max-w-sm relative"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 glass rounded-full size-9 flex items-center justify-center"
+          aria-label="关闭"
+        >
+          <X className="size-4" />
+        </button>
+        <p className="font-display text-lg mb-1">肯定语设置</p>
+        <p className="text-xs opacity-70 mb-5 leading-relaxed">「{aff.text}」</p>
+
+        <label className="text-xs opacity-70 block mb-2">手动设置累计计数</label>
+        <div className="flex gap-2 mb-6">
+          <input
+            type="number"
+            min={0}
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            className="flex-1 glass rounded-full px-4 py-2.5 text-sm outline-none tabular-nums"
+          />
+          <button
+            onClick={() => onSave(Math.max(0, Math.floor(Number(val) || 0)))}
+            className="glass-strong selected-strong glass-hover rounded-full px-5 py-2.5 text-sm"
+          >
+            保存
+          </button>
+        </div>
+
+        <button
+          onClick={onDelete}
+          className="w-full glass glass-hover rounded-2xl px-4 py-3 text-sm flex items-center justify-center gap-2 text-red-500/90"
+        >
+          <Trash2 className="size-4" /> 删除肯定语
+        </button>
+      </div>
     </div>
   );
 }
