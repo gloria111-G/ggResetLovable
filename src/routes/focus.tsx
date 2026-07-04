@@ -982,16 +982,23 @@ function BreathBall({ running }: { running: boolean }) {
       ? "linear"
       : "cubic-bezier(0.42, 0, 0.58, 1)"; // smooth ease-in-out for inhale/exhale
 
+  const isDark = settings.theme === "dark";
+  const ballBg = isDark
+    ? "radial-gradient(circle at 35% 30%, rgba(50,80,140,0.98) 0%, rgba(25,45,95,0.95) 55%, rgba(12,25,60,0.92) 100%)"
+    : "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.98) 0%, rgba(240,248,255,0.95) 55%, rgba(220,235,250,0.92) 100%)";
+  const ballShadow = isDark
+    ? "0 20px 60px rgba(0,0,0,0.45), inset 0 0 40px rgba(255,255,255,0.08)"
+    : "0 20px 60px rgba(60,110,170,0.25), inset 0 0 40px rgba(255,255,255,0.35)";
+  const textColor = isDark ? "text-white" : "text-slate-900";
+
   return (
     <div className="flex flex-col items-center justify-center select-none py-6">
       <div className="relative" style={{ width: 260, height: 260 }}>
         <div
           className="absolute inset-0 rounded-full flex items-center justify-center"
           style={{
-            background:
-              "radial-gradient(circle at 35% 30%, rgba(220,240,255,0.95) 0%, rgba(150,200,235,0.85) 55%, rgba(110,170,215,0.75) 100%)",
-            boxShadow:
-              "0 20px 60px rgba(60, 110, 170, 0.35), inset 0 0 40px rgba(255,255,255,0.25)",
+            background: ballBg,
+            boxShadow: ballShadow,
             transform: `scale3d(${targetScale}, ${targetScale}, 1)`,
             transition: `transform ${transitionDur}s ${easing}`,
             willChange: "transform",
@@ -999,11 +1006,11 @@ function BreathBall({ running }: { running: boolean }) {
           }}
         >
           <div className="text-center">
-            <p className="font-display text-2xl mb-1 text-white drop-shadow">
+            <p className={`font-display text-2xl mb-1 ${textColor}`}>
               {running ? cur.label : "准备"}
             </p>
             {running && cur.sec > 0 && (
-              <p className="font-num tabular-nums text-3xl text-white/95 drop-shadow">
+              <p className={`font-num tabular-nums text-3xl ${textColor}`}>
                 {countdown}
               </p>
             )}
