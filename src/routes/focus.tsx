@@ -336,21 +336,70 @@ function AffirmFocus() {
     [affirmations, selectedAff],
   );
 
-  function addCount(n: number, feedback = false) {
-    if (n <= 0) return;
-    const affId = selectedAff || undefined;
-    setCount((c) => c + n);
-    setLogs((prev) =>
-      upsertDailyLog(prev, { tag: selectedTag, affId, addCount: n, kind: "affirm" }),
-    );
-    if (selectedAff) {
-      setAffs((prev) =>
-        prev.map((a) => (a.id === selectedAff ? { ...a, count: a.count + n } : a)),
+  const addCount = useCallback(
+    (n: number, _feedback = false) => {
+      if (n <= 0) return;
+      const affId = selectedAff || undefined;
+      setCount((c) => c + n);
+      setLogs((prev) =>
+        upsertDailyLog(prev, { tag: selectedTag, affId, addCount: n, kind: "affirm" }),
       );
-    }
-    if (settings.sound) playFeedback(settings);
-    void feedback;
-  }
+      if (selectedAff) {
+        setAffs((prev) =>
+          prev.map((a) => (a.id === selectedAff ? { ...a, count: a.count + n } : a)),
+        );
+      }
+      // Fire tick sounds per-count (up to 4 to avoid clobber during large catch-up)
+      if (settings.sound) {
+        const times = Math.min(n, 4);
+        for (let i = 0; i < times; i++) playFeedback(settings);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedAff, selectedTag, settings.sound],
+  );
+
+  // Keep latest addCount reachable from the worker's onTick closure
+  useEffect(() => {
+    addCountRef.current = (n) => addCount(n, false);
+  }, [addCount]);
+
+  const [showResetMenu, setShowResetMenu] = useState(false);
+  const doReset = useCallback(
+    (mode: "today" | "total") => {
+      const td = todayKey();
+      setLogs((prev) => {
+        if (mode === "today") {
+          return prev.filter(
+            (l) =>
+              !(
+                l.date === td &&
+                l.tag === selectedTag &&
+                (selectedAff ? l.affirmationId === selectedAff : !l.affirmationId) &&
+                (l.kind || "affirm") === "affirm"
+              ),
+          );
+        }
+        // total: strip all affirm-count logs for tag / aff (keep durations)
+        return prev.map((l) => {
+          const match =
+            l.tag === selectedTag &&
+            (selectedAff ? l.affirmationId === selectedAff : true) &&
+            (l.kind || "affirm") === "affirm";
+          return match ? { ...l, count: 0 } : l;
+        });
+      });
+      if (mode === "total" && selectedAff) {
+        setAffs((prev) =>
+          prev.map((a) => (a.id === selectedAff ? { ...a, count: 0 } : a)),
+        );
+      }
+      setCount(0);
+      setShowResetMenu(false);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedAff, selectedTag],
+  );
 
   function start() {
     // Unlock audio pipelines on the user gesture (iOS Safari requirement)
