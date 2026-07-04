@@ -9,7 +9,7 @@ import {
   DEFAULT_TAGS,
   uid,
 } from "@/lib/storage";
-import { Check, Plus, Trash2, Sparkles, GripVertical, X } from "lucide-react";
+import { Check, Plus, Trash2, Sparkles, GripVertical, X, Settings as Cog } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -56,6 +56,7 @@ function ManifestPage() {
   const [newTag, setNewTag] = useState("");
   const [celebrate, setCelebrate] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingDelete | null>(null);
+  const [editingAff, setEditingAff] = useState<Affirmation | null>(null);
 
   // Goals: sort by `order` then createdAt
   const sortedGoals = useMemo(() => {
@@ -240,11 +241,11 @@ function ManifestPage() {
                 <span className="flex-1 text-sm">{a.text}</span>
                 <span className="text-xs tabular-nums opacity-70">×{a.count}</span>
                 <button
-                  onClick={() => setPending({ kind: "aff", id: a.id, text: a.text })}
-                  className="opacity-40 hover:opacity-100"
-                  aria-label="删除肯定语"
+                  onClick={() => setEditingAff(a)}
+                  className="opacity-50 hover:opacity-100"
+                  aria-label="肯定语设置"
                 >
-                  <Trash2 className="size-4" />
+                  <Cog className="size-4" />
                 </button>
               </div>
             ))}
