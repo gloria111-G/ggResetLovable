@@ -480,6 +480,59 @@ function SettingsPage() {
         </div>
       )}
 
+      {showChangelog && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4"
+          onClick={() => setShowChangelog(false)}
+        >
+          <div
+            className="glass-strong rounded-3xl p-6 w-full max-w-md relative max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowChangelog(false)}
+              className="absolute top-3 right-3 glass rounded-full size-9 flex items-center justify-center"
+              aria-label="关闭"
+            >
+              <X className="size-4" />
+            </button>
+            <p className="font-display text-xl mb-4">更新日志</p>
+            <div className="space-y-4">
+              {CHANGELOG.map((c) => (
+                <div key={c.date}>
+                  <p className="text-xs opacity-60 mb-1">{c.date}</p>
+                  <p className="text-sm leading-relaxed">{c.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showIosHint && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4"
+          onClick={() => setShowIosHint(false)}
+        >
+          <div
+            className="glass-strong rounded-3xl p-6 w-full max-w-sm relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowIosHint(false)}
+              className="absolute top-3 right-3 glass rounded-full size-9 flex items-center justify-center"
+              aria-label="关闭"
+            >
+              <X className="size-4" />
+            </button>
+            <p className="font-display text-lg mb-3">添加到主屏幕</p>
+            <p className="text-sm leading-relaxed opacity-85">
+              在 iPhone Safari 中打开本页面，点击底部的「分享」按钮，选择「添加到主屏幕」即可把 GG RESET 变成桌面 App。
+            </p>
+          </div>
+        </div>
+      )}
+
       <ConfirmDialog
         open={confirmClear}
         title="重置全部本地数据？"
