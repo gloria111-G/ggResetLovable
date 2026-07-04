@@ -527,20 +527,57 @@ function AffirmFocus() {
           </span>
         </button>
 
-        {settings.autoCountEnabled && (
-          <div className="mt-6 flex flex-col items-center gap-1">
-            <button
-              onClick={() => {
-                if (!autoOn) lastAutoAtRef.current = Date.now();
-                setAutoOn((v) => !v);
-              }}
-              className={`rounded-full px-4 py-2 text-xs ${selCls(autoOn)}`}
-            >
-              自动计数：{autoOn ? "开启" : "暂停"}
-            </button>
-            <p className="text-[11px] opacity-50">
-              间隔 {settings.autoCountInterval} 秒（可在设置中调整）
-            </p>
+        {(settings.autoCountEnabled || settings.resetCounterEnabled) && (
+          <div className="mt-6 flex flex-col items-center gap-2">
+            <div className="flex items-center gap-2 relative">
+              {settings.resetCounterEnabled && (
+                <button
+                  onClick={() => setShowResetMenu((v) => !v)}
+                  className="glass glass-hover rounded-full px-3 py-2 text-xs flex items-center gap-1"
+                  aria-label="重置计数器"
+                >
+                  <RefreshCw className="size-3" /> 重置
+                </button>
+              )}
+              {settings.autoCountEnabled && (
+                <button
+                  onClick={() => {
+                    if (!autoOn) lastAutoAtRef.current = Date.now();
+                    setAutoOn((v) => !v);
+                  }}
+                  className={`rounded-full px-4 py-2 text-xs ${selCls(autoOn)}`}
+                >
+                  自动计数：{autoOn ? "开启" : "暂停"}
+                </button>
+              )}
+              {showResetMenu && (
+                <div className="absolute top-full mt-2 left-0 glass-strong rounded-2xl p-2 flex flex-col gap-1 z-30 min-w-[140px] shadow-lg">
+                  <button
+                    onClick={() => doReset("today")}
+                    className="glass-hover rounded-xl px-3 py-2 text-xs text-left"
+                  >
+                    重置今日计数
+                  </button>
+                  <button
+                    onClick={() => doReset("total")}
+                    className="glass-hover rounded-xl px-3 py-2 text-xs text-left"
+                  >
+                    重置累计计数
+                  </button>
+                  <button
+                    onClick={() => setShowResetMenu(false)}
+                    className="glass-hover rounded-xl px-3 py-2 text-xs text-left opacity-60"
+                  >
+                    取消
+                  </button>
+                </div>
+              )}
+            </div>
+            {settings.autoCountEnabled && (
+              <p className="text-[11px] opacity-50">
+                间隔 {settings.autoCountInterval} 秒（可在设置中调整）
+              </p>
+            )}
           </div>
         )}
       </GlassCard>
