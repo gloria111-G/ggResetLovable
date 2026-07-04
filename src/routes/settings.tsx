@@ -6,6 +6,7 @@ import { UsageGuideContent } from "@/components/UsageGuide";
 import { useApp } from "@/lib/app-context";
 import { storage } from "@/lib/storage";
 import { setWhiteNoise, stopWhiteNoise } from "@/lib/white-noise";
+import { promptInstall, isIOS, isStandalone } from "@/lib/pwa";
 import {
   Download,
   Upload,
@@ -20,6 +21,8 @@ import {
   BookOpen,
   ChevronDown,
   ChevronUp,
+  Smartphone,
+  FileText,
 } from "lucide-react";
 import donateWechat from "@/assets/donate-wechat.jpg";
 import donateAlipay from "@/assets/donate-alipay.jpg";
@@ -28,6 +31,13 @@ export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "设置 · GG RESET" }] }),
   component: SettingsPage,
 });
+
+const CHANGELOG: { date: string; body: string }[] = [
+  {
+    date: "2026/7",
+    body: "更新肯定语数值手动调整、重置计数器功能，调整呼吸球颜色对比，增加 PWA 配置（添加 GG RESET 到主屏幕），调整设置顺序，更新后台播放白噪音计数器音效功能。",
+  },
+];
 
 function selCls(active: boolean) {
   return active ? "glass-strong selected-strong" : "glass";
@@ -40,6 +50,8 @@ function SettingsPage() {
   const [showDonate, setShowDonate] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
+  const [showIosHint, setShowIosHint] = useState(false);
 
   // Live preview of white noise on settings page
   useEffect(() => {
