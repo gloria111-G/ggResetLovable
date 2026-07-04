@@ -53,6 +53,7 @@ export type Settings = {
   affirmTimerMode: "countdown" | "stopwatch";
   breathTimerMode: "countdown" | "stopwatch";
   homeGuideShortcut: boolean;
+  resetCounterEnabled: boolean;
 };
 
 export function dailyLogId(date: string, tag: string, affId?: string, kind: "affirm" | "breath" = "affirm") {
@@ -131,6 +132,7 @@ export const DEFAULT_SETTINGS: Settings = {
   affirmTimerMode: "countdown",
   breathTimerMode: "countdown",
   homeGuideShortcut: true,
+  resetCounterEnabled: false,
 };
 
 function read<T>(key: string, fallback: T): T {

@@ -30,6 +30,12 @@ function ensureAudio(): HTMLAudioElement | null {
     el.setAttribute("webkit-playsinline", "true");
     audio = el;
   }
+  // Media session: white noise follows standard media rules — can be ducked
+  // or paused by other apps' audio, then resumes.
+  try {
+    const nav = navigator as unknown as { audioSession?: { type: string } };
+    if (nav.audioSession) nav.audioSession.type = "playback";
+  } catch {}
   return audio;
 }
 
