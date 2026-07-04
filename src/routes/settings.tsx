@@ -166,12 +166,15 @@ function SettingsPage() {
           </div>
         </GlassCard>
 
-        {/* Focus settings */}
+        {/* Focus settings — reordered: affirmation group → breath group → white noise */}
         <GlassCard>
           <h2 className="font-display text-xl mb-4">专注页面</h2>
 
+          {/* --- 肯定语页面设置 --- */}
+          <p className="text-xs uppercase tracking-widest opacity-50 mb-2">肯定语页面</p>
+
           <div className="mb-4">
-            <p className="text-sm mb-2">计时模式 · 肯定语页面</p>
+            <p className="text-sm mb-2">计时模式</p>
             <div className="flex gap-2">
               <button
                 onClick={() => setSettings((s) => ({ ...s, affirmTimerMode: "countdown" }))}
@@ -188,30 +191,11 @@ function SettingsPage() {
             </div>
           </div>
 
-          <div className="mb-4">
-            <p className="text-sm mb-2">计时模式 · 呼吸调整页面</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setSettings((s) => ({ ...s, breathTimerMode: "countdown" }))}
-                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.breathTimerMode === "countdown")}`}
-              >
-                <Hourglass className="size-4" /> 倒计时
-              </button>
-              <button
-                onClick={() => setSettings((s) => ({ ...s, breathTimerMode: "stopwatch" }))}
-                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.breathTimerMode === "stopwatch")}`}
-              >
-                <Timer className="size-4" /> 正计时（秒表）
-              </button>
-            </div>
-          </div>
-
           <Toggle
             label="计数器音效提示"
             value={settings.sound}
             onChange={(v) => setSettings((s) => ({ ...s, sound: v }))}
           />
-
           <Toggle
             label="键盘计数（回车/空格 +1）"
             value={settings.keyboardCounter}
@@ -257,6 +241,12 @@ function SettingsPage() {
             </div>
           )}
 
+          <Toggle
+            label="显示计数器重置按钮"
+            value={settings.resetCounterEnabled}
+            onChange={(v) => setSettings((s) => ({ ...s, resetCounterEnabled: v }))}
+          />
+
           <div className="mt-4">
             <p className="text-sm mb-2">计数器显示</p>
             <div className="flex gap-2">
@@ -272,52 +262,76 @@ function SettingsPage() {
             </div>
           </div>
 
-          <div className="mt-4">
-            <p className="text-sm mb-2">呼吸调整</p>
-            <div className="flex flex-wrap gap-2">
-              {(["box", "478", "custom", "off"] as const).map((m) => (
+          {/* --- 呼吸调整页面设置 --- */}
+          <div className="mt-6 pt-4 border-t border-white/10">
+            <p className="text-xs uppercase tracking-widest opacity-50 mb-2">呼吸调整页面</p>
+
+            <div className="mb-4">
+              <p className="text-sm mb-2">计时模式</p>
+              <div className="flex gap-2">
                 <button
-                  key={m}
-                  onClick={() => setSettings((s) => ({ ...s, breathMode: m }))}
-                  className={`rounded-full px-3 py-1.5 text-xs ${selCls(settings.breathMode === m)}`}
+                  onClick={() => setSettings((s) => ({ ...s, breathTimerMode: "countdown" }))}
+                  className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.breathTimerMode === "countdown")}`}
                 >
-                  {m === "box"
-                    ? "箱式 4-4-4-4"
-                    : m === "478"
-                      ? "4-7-8"
-                      : m === "custom"
-                        ? "自定义"
-                        : "关闭"}
+                  <Hourglass className="size-4" /> 倒计时
                 </button>
-              ))}
+                <button
+                  onClick={() => setSettings((s) => ({ ...s, breathTimerMode: "stopwatch" }))}
+                  className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.breathTimerMode === "stopwatch")}`}
+                >
+                  <Timer className="size-4" /> 正计时（秒表）
+                </button>
+              </div>
             </div>
-            {settings.breathMode === "custom" && (
-              <div className="grid grid-cols-4 gap-2 mt-3">
-                {(["inhale", "hold1", "exhale", "hold2"] as const).map((k) => (
-                  <label key={k} className="text-xs">
-                    <span className="opacity-60 block mb-1">
-                      {k === "inhale" ? "吸" : k === "exhale" ? "呼" : "屏"}
-                    </span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={20}
-                      value={settings.customBreath[k]}
-                      onChange={(e) =>
-                        setSettings((s) => ({
-                          ...s,
-                          customBreath: { ...s.customBreath, [k]: Number(e.target.value) },
-                        }))
-                      }
-                      className="glass rounded-xl px-2 py-1.5 w-full text-sm outline-none"
-                    />
-                  </label>
+
+            <div className="mt-2">
+              <p className="text-sm mb-2">呼吸节奏</p>
+              <div className="flex flex-wrap gap-2">
+                {(["box", "478", "custom", "off"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setSettings((s) => ({ ...s, breathMode: m }))}
+                    className={`rounded-full px-3 py-1.5 text-xs ${selCls(settings.breathMode === m)}`}
+                  >
+                    {m === "box"
+                      ? "箱式 4-4-4-4"
+                      : m === "478"
+                        ? "4-7-8"
+                        : m === "custom"
+                          ? "自定义"
+                          : "关闭"}
+                  </button>
                 ))}
               </div>
-            )}
+              {settings.breathMode === "custom" && (
+                <div className="grid grid-cols-4 gap-2 mt-3">
+                  {(["inhale", "hold1", "exhale", "hold2"] as const).map((k) => (
+                    <label key={k} className="text-xs">
+                      <span className="opacity-60 block mb-1">
+                        {k === "inhale" ? "吸" : k === "exhale" ? "呼" : "屏"}
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={20}
+                        value={settings.customBreath[k]}
+                        onChange={(e) =>
+                          setSettings((s) => ({
+                            ...s,
+                            customBreath: { ...s.customBreath, [k]: Number(e.target.value) },
+                          }))
+                        }
+                        className="glass rounded-xl px-2 py-1.5 w-full text-sm outline-none"
+                      />
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="mt-4">
+          {/* --- 白噪音（放在最底部）--- */}
+          <div className="mt-6 pt-4 border-t border-white/10">
             <p className="text-sm mb-2">白噪音</p>
             <div className="flex flex-wrap gap-2">
               {(["off", "waves", "fire", "rain"] as const).map((m) => (
@@ -387,6 +401,32 @@ function SettingsPage() {
               onChange={(e) => e.target.files?.[0] && importData(e.target.files[0])}
             />
           </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              onClick={async () => {
+                if (isStandalone()) {
+                  alert("已经安装啦 ✨");
+                  return;
+                }
+                const r = await promptInstall();
+                if (r === "unavailable") {
+                  if (isIOS()) setShowIosHint(true);
+                  else alert("请使用浏览器菜单里的「添加到主屏幕 / 安装应用」。");
+                }
+              }}
+              className="glass glass-hover rounded-2xl px-4 py-3 text-sm flex items-center gap-2"
+            >
+              <Smartphone className="size-4" /> 添加 GG RESET 到桌面
+            </button>
+            <button
+              onClick={() => setShowChangelog(true)}
+              className="glass glass-hover rounded-2xl px-4 py-3 text-sm flex items-center gap-2"
+            >
+              <FileText className="size-4" /> 更新日志
+            </button>
+          </div>
+
           <p className="text-xs opacity-60 mt-3">所有数据存储在你的浏览器本地，从不上传。</p>
         </GlassCard>
 
