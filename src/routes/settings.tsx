@@ -6,7 +6,6 @@ import { UsageGuideContent } from "@/components/UsageGuide";
 import { useApp } from "@/lib/app-context";
 import { storage } from "@/lib/storage";
 import { setWhiteNoise, stopWhiteNoise } from "@/lib/white-noise";
-import { promptInstall, isIOS, isStandalone } from "@/lib/pwa";
 import {
   Download,
   Upload,
@@ -21,8 +20,6 @@ import {
   BookOpen,
   ChevronDown,
   ChevronUp,
-  Smartphone,
-  FileText,
 } from "lucide-react";
 import donateWechat from "@/assets/donate-wechat.jpg";
 import donateAlipay from "@/assets/donate-alipay.jpg";
@@ -31,13 +28,6 @@ export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "设置 · GG RESET" }] }),
   component: SettingsPage,
 });
-
-const CHANGELOG: { date: string; body: string }[] = [
-  {
-    date: "2026/7",
-    body: "更新肯定语数值手动调整、重置计数器功能，调整呼吸球颜色对比，增加 PWA 配置（添加 GG RESET 到主屏幕），调整设置顺序，更新后台播放白噪音计数器音效功能。",
-  },
-];
 
 function selCls(active: boolean) {
   return active ? "glass-strong selected-strong" : "glass";
@@ -50,8 +40,6 @@ function SettingsPage() {
   const [showDonate, setShowDonate] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
-  const [showChangelog, setShowChangelog] = useState(false);
-  const [showIosHint, setShowIosHint] = useState(false);
 
   // Live preview of white noise on settings page
   useEffect(() => {
@@ -166,15 +154,12 @@ function SettingsPage() {
           </div>
         </GlassCard>
 
-        {/* Focus settings — reordered: affirmation group → breath group → white noise */}
+        {/* Focus settings */}
         <GlassCard>
           <h2 className="font-display text-xl mb-4">专注页面</h2>
 
-          {/* --- 肯定语页面设置 --- */}
-          <p className="text-xs uppercase tracking-widest opacity-50 mb-2">肯定语页面</p>
-
           <div className="mb-4">
-            <p className="text-sm mb-2">计时模式</p>
+            <p className="text-sm mb-2">计时模式 · 肯定语页面</p>
             <div className="flex gap-2">
               <button
                 onClick={() => setSettings((s) => ({ ...s, affirmTimerMode: "countdown" }))}
@@ -191,11 +176,30 @@ function SettingsPage() {
             </div>
           </div>
 
+          <div className="mb-4">
+            <p className="text-sm mb-2">计时模式 · 呼吸调整页面</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSettings((s) => ({ ...s, breathTimerMode: "countdown" }))}
+                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.breathTimerMode === "countdown")}`}
+              >
+                <Hourglass className="size-4" /> 倒计时
+              </button>
+              <button
+                onClick={() => setSettings((s) => ({ ...s, breathTimerMode: "stopwatch" }))}
+                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.breathTimerMode === "stopwatch")}`}
+              >
+                <Timer className="size-4" /> 正计时（秒表）
+              </button>
+            </div>
+          </div>
+
           <Toggle
             label="计数器音效提示"
             value={settings.sound}
             onChange={(v) => setSettings((s) => ({ ...s, sound: v }))}
           />
+
           <Toggle
             label="键盘计数（回车/空格 +1）"
             value={settings.keyboardCounter}
@@ -241,12 +245,6 @@ function SettingsPage() {
             </div>
           )}
 
-          <Toggle
-            label="显示计数器重置按钮"
-            value={settings.resetCounterEnabled}
-            onChange={(v) => setSettings((s) => ({ ...s, resetCounterEnabled: v }))}
-          />
-
           <div className="mt-4">
             <p className="text-sm mb-2">计数器显示</p>
             <div className="flex gap-2">
@@ -262,76 +260,52 @@ function SettingsPage() {
             </div>
           </div>
 
-          {/* --- 呼吸调整页面设置 --- */}
-          <div className="mt-6 pt-4 border-t border-white/10">
-            <p className="text-xs uppercase tracking-widest opacity-50 mb-2">呼吸调整页面</p>
-
-            <div className="mb-4">
-              <p className="text-sm mb-2">计时模式</p>
-              <div className="flex gap-2">
+          <div className="mt-4">
+            <p className="text-sm mb-2">呼吸调整</p>
+            <div className="flex flex-wrap gap-2">
+              {(["box", "478", "custom", "off"] as const).map((m) => (
                 <button
-                  onClick={() => setSettings((s) => ({ ...s, breathTimerMode: "countdown" }))}
-                  className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.breathTimerMode === "countdown")}`}
+                  key={m}
+                  onClick={() => setSettings((s) => ({ ...s, breathMode: m }))}
+                  className={`rounded-full px-3 py-1.5 text-xs ${selCls(settings.breathMode === m)}`}
                 >
-                  <Hourglass className="size-4" /> 倒计时
+                  {m === "box"
+                    ? "箱式 4-4-4-4"
+                    : m === "478"
+                      ? "4-7-8"
+                      : m === "custom"
+                        ? "自定义"
+                        : "关闭"}
                 </button>
-                <button
-                  onClick={() => setSettings((s) => ({ ...s, breathTimerMode: "stopwatch" }))}
-                  className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.breathTimerMode === "stopwatch")}`}
-                >
-                  <Timer className="size-4" /> 正计时（秒表）
-                </button>
-              </div>
+              ))}
             </div>
-
-            <div className="mt-2">
-              <p className="text-sm mb-2">呼吸节奏</p>
-              <div className="flex flex-wrap gap-2">
-                {(["box", "478", "custom", "off"] as const).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setSettings((s) => ({ ...s, breathMode: m }))}
-                    className={`rounded-full px-3 py-1.5 text-xs ${selCls(settings.breathMode === m)}`}
-                  >
-                    {m === "box"
-                      ? "箱式 4-4-4-4"
-                      : m === "478"
-                        ? "4-7-8"
-                        : m === "custom"
-                          ? "自定义"
-                          : "关闭"}
-                  </button>
+            {settings.breathMode === "custom" && (
+              <div className="grid grid-cols-4 gap-2 mt-3">
+                {(["inhale", "hold1", "exhale", "hold2"] as const).map((k) => (
+                  <label key={k} className="text-xs">
+                    <span className="opacity-60 block mb-1">
+                      {k === "inhale" ? "吸" : k === "exhale" ? "呼" : "屏"}
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={20}
+                      value={settings.customBreath[k]}
+                      onChange={(e) =>
+                        setSettings((s) => ({
+                          ...s,
+                          customBreath: { ...s.customBreath, [k]: Number(e.target.value) },
+                        }))
+                      }
+                      className="glass rounded-xl px-2 py-1.5 w-full text-sm outline-none"
+                    />
+                  </label>
                 ))}
               </div>
-              {settings.breathMode === "custom" && (
-                <div className="grid grid-cols-4 gap-2 mt-3">
-                  {(["inhale", "hold1", "exhale", "hold2"] as const).map((k) => (
-                    <label key={k} className="text-xs">
-                      <span className="opacity-60 block mb-1">
-                        {k === "inhale" ? "吸" : k === "exhale" ? "呼" : "屏"}
-                      </span>
-                      <input
-                        type="number"
-                        min={0}
-                        max={20}
-                        value={settings.customBreath[k]}
-                        onChange={(e) =>
-                          setSettings((s) => ({
-                            ...s,
-                            customBreath: { ...s.customBreath, [k]: Number(e.target.value) },
-                          }))
-                        }
-                        className="glass rounded-xl px-2 py-1.5 w-full text-sm outline-none"
-                      />
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
-          {/* --- 白噪音（放在最底部）--- */}
-          <div className="mt-6 pt-4 border-t border-white/10">
+          <div className="mt-4">
             <p className="text-sm mb-2">白噪音</p>
             <div className="flex flex-wrap gap-2">
               {(["off", "waves", "fire", "rain"] as const).map((m) => (
@@ -401,32 +375,6 @@ function SettingsPage() {
               onChange={(e) => e.target.files?.[0] && importData(e.target.files[0])}
             />
           </div>
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              onClick={async () => {
-                if (isStandalone()) {
-                  alert("已经安装啦 ✨");
-                  return;
-                }
-                const r = await promptInstall();
-                if (r === "unavailable") {
-                  if (isIOS()) setShowIosHint(true);
-                  else alert("请使用浏览器菜单里的「添加到主屏幕 / 安装应用」。");
-                }
-              }}
-              className="glass glass-hover rounded-2xl px-4 py-3 text-sm flex items-center gap-2"
-            >
-              <Smartphone className="size-4" /> 添加 GG RESET 到桌面
-            </button>
-            <button
-              onClick={() => setShowChangelog(true)}
-              className="glass glass-hover rounded-2xl px-4 py-3 text-sm flex items-center gap-2"
-            >
-              <FileText className="size-4" /> 更新日志
-            </button>
-          </div>
-
           <p className="text-xs opacity-60 mt-3">所有数据存储在你的浏览器本地，从不上传。</p>
         </GlassCard>
 
@@ -476,59 +424,6 @@ function SettingsPage() {
               </div>
             </div>
             <p className="text-center text-xs opacity-70 mt-4">感谢您的支持</p>
-          </div>
-        </div>
-      )}
-
-      {showChangelog && (
-        <div
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4"
-          onClick={() => setShowChangelog(false)}
-        >
-          <div
-            className="glass-strong rounded-3xl p-6 w-full max-w-md relative max-h-[80vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setShowChangelog(false)}
-              className="absolute top-3 right-3 glass rounded-full size-9 flex items-center justify-center"
-              aria-label="关闭"
-            >
-              <X className="size-4" />
-            </button>
-            <p className="font-display text-xl mb-4">更新日志</p>
-            <div className="space-y-4">
-              {CHANGELOG.map((c) => (
-                <div key={c.date}>
-                  <p className="text-xs opacity-60 mb-1">{c.date}</p>
-                  <p className="text-sm leading-relaxed">{c.body}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showIosHint && (
-        <div
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4"
-          onClick={() => setShowIosHint(false)}
-        >
-          <div
-            className="glass-strong rounded-3xl p-6 w-full max-w-sm relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setShowIosHint(false)}
-              className="absolute top-3 right-3 glass rounded-full size-9 flex items-center justify-center"
-              aria-label="关闭"
-            >
-              <X className="size-4" />
-            </button>
-            <p className="font-display text-lg mb-3">添加到主屏幕</p>
-            <p className="text-sm leading-relaxed opacity-85">
-              在 iPhone Safari 中打开本页面，点击底部的「分享」按钮，选择「添加到主屏幕」即可把 GG RESET 变成桌面 App。
-            </p>
           </div>
         </div>
       )}
