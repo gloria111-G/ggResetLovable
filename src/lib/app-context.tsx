@@ -88,6 +88,11 @@ export function unlockAudio() {
     ctx.resume().catch(() => {});
   }
   if (!tickBuffer) tickBuffer = buildTickBuffer(ctx);
+  // Ambient session: counter tick mixes with background apps, never interrupts them
+  try {
+    const nav = navigator as unknown as { audioSession?: { type: string } };
+    if (nav.audioSession && !nav.audioSession.type) nav.audioSession.type = "ambient";
+  } catch {}
 }
 
 export function playFeedback(settings: Settings) {

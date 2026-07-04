@@ -14,7 +14,8 @@ import {
   ACTIVE_SESSION_KEY_BREATH,
 } from "@/lib/storage";
 import { setWhiteNoise, stopWhiteNoise, getCurrentWhiteNoise, unlockWhiteNoise } from "@/lib/white-noise";
-import { Play, Pause, RotateCcw, Plus, Sparkles, Wind } from "lucide-react";
+import { Play, Pause, RotateCcw, Plus, Sparkles, Wind, RefreshCw } from "lucide-react";
+import { AutoCountWorker } from "@/lib/auto-count-worker";
 
 export const Route = createFileRoute("/focus")({
   head: () => ({ meta: [{ title: "进入专注 · GG RESET" }] }),
@@ -203,37 +204,65 @@ function AffirmFocus() {
     else saveSession(ACTIVE_SESSION_KEY_AFFIRM, null);
   }, [duration, count, running, selectedTag, selectedAff, autoOn]);
 
-  // Auto-count: time-delta catchup (correct even after backgrounding)
+  // ---- Worker-driven auto-count (accurate in background) ----
+  const workerRef = useRef<AutoCountWorker | null>(null);
+  const addCountRef = useRef<(n: number) => void>(() => {});
+
+  // Time-based catch-up: computes correct N counts based on wall clock,
+  // used both by the worker onTick and by visibility/focus events.
   const flushAutoCount = useCallback(() => {
     if (!running || !settings.autoCountEnabled || !autoOn) return;
-    const intervalMs = Math.max(0.1, settings.autoCountInterval) * 1000;
+    const intervalMs = Math.max(100, settings.autoCountInterval * 1000);
     const now = Date.now();
-    // Cap by allowed elapsed (don't count past countdown end)
     const e = computeElapsed();
     const limitMs = isStopwatch ? Infinity : Math.max(0, duration - e) * 1000;
     const elapsedSinceLast = Math.min(now - lastAutoAtRef.current, limitMs + intervalMs);
     const n = Math.floor(elapsedSinceLast / intervalMs);
     if (n > 0) {
       lastAutoAtRef.current += n * intervalMs;
-      addCount(n);
+      addCountRef.current(n);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running, autoOn, settings.autoCountEnabled, settings.autoCountInterval, duration, isStopwatch]);
 
-  // Main tick loop
+  // Boot worker once
+  useEffect(() => {
+    const w = new AutoCountWorker();
+    workerRef.current = w;
+    w.onTick(() => flushAutoCount());
+    return () => w.destroy();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep the ontick handler pointing at latest flushAutoCount
+  useEffect(() => {
+    workerRef.current?.onTick(() => flushAutoCount());
+  }, [flushAutoCount]);
+
+  // Start/stop worker with running+autoOn
+  useEffect(() => {
+    const w = workerRef.current;
+    if (!w) return;
+    if (running && settings.autoCountEnabled && autoOn) {
+      w.start(Math.max(0.1, settings.autoCountInterval), lastAutoAtRef.current);
+    } else {
+      w.stop();
+    }
+  }, [running, autoOn, settings.autoCountEnabled, settings.autoCountInterval]);
+
+  // Lightweight display tick for the timer text (raf, no logic)
   useEffect(() => {
     if (!running) return;
     let raf = 0;
     let last = 0;
     const loop = (t: number) => {
-      if (t - last > 120) {
+      if (t - last > 200) {
         last = t;
         const e = computeElapsed();
         if (!isStopwatch && e >= duration) {
           finish(true);
           return;
         }
-        flushAutoCount();
         forceTick((x) => (x + 1) % 1_000_000);
       }
       raf = requestAnimationFrame(loop);
@@ -241,7 +270,7 @@ function AffirmFocus() {
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [running, duration, isStopwatch, flushAutoCount]);
+  }, [running, duration, isStopwatch]);
 
   // Visibility recompute (handles background tabs / screen lock)
   useEffect(() => {
@@ -307,21 +336,70 @@ function AffirmFocus() {
     [affirmations, selectedAff],
   );
 
-  function addCount(n: number, feedback = false) {
-    if (n <= 0) return;
-    const affId = selectedAff || undefined;
-    setCount((c) => c + n);
-    setLogs((prev) =>
-      upsertDailyLog(prev, { tag: selectedTag, affId, addCount: n, kind: "affirm" }),
-    );
-    if (selectedAff) {
-      setAffs((prev) =>
-        prev.map((a) => (a.id === selectedAff ? { ...a, count: a.count + n } : a)),
+  const addCount = useCallback(
+    (n: number, _feedback = false) => {
+      if (n <= 0) return;
+      const affId = selectedAff || undefined;
+      setCount((c) => c + n);
+      setLogs((prev) =>
+        upsertDailyLog(prev, { tag: selectedTag, affId, addCount: n, kind: "affirm" }),
       );
-    }
-    if (settings.sound) playFeedback(settings);
-    void feedback;
-  }
+      if (selectedAff) {
+        setAffs((prev) =>
+          prev.map((a) => (a.id === selectedAff ? { ...a, count: a.count + n } : a)),
+        );
+      }
+      // Fire tick sounds per-count (up to 4 to avoid clobber during large catch-up)
+      if (settings.sound) {
+        const times = Math.min(n, 4);
+        for (let i = 0; i < times; i++) playFeedback(settings);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedAff, selectedTag, settings.sound],
+  );
+
+  // Keep latest addCount reachable from the worker's onTick closure
+  useEffect(() => {
+    addCountRef.current = (n) => addCount(n, false);
+  }, [addCount]);
+
+  const [showResetMenu, setShowResetMenu] = useState(false);
+  const doReset = useCallback(
+    (mode: "today" | "total") => {
+      const td = todayKey();
+      setLogs((prev) => {
+        if (mode === "today") {
+          return prev.filter(
+            (l) =>
+              !(
+                l.date === td &&
+                l.tag === selectedTag &&
+                (selectedAff ? l.affirmationId === selectedAff : !l.affirmationId) &&
+                (l.kind || "affirm") === "affirm"
+              ),
+          );
+        }
+        // total: strip all affirm-count logs for tag / aff (keep durations)
+        return prev.map((l) => {
+          const match =
+            l.tag === selectedTag &&
+            (selectedAff ? l.affirmationId === selectedAff : true) &&
+            (l.kind || "affirm") === "affirm";
+          return match ? { ...l, count: 0 } : l;
+        });
+      });
+      if (mode === "total" && selectedAff) {
+        setAffs((prev) =>
+          prev.map((a) => (a.id === selectedAff ? { ...a, count: 0 } : a)),
+        );
+      }
+      setCount(0);
+      setShowResetMenu(false);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedAff, selectedTag],
+  );
 
   function start() {
     // Unlock audio pipelines on the user gesture (iOS Safari requirement)
@@ -449,20 +527,57 @@ function AffirmFocus() {
           </span>
         </button>
 
-        {settings.autoCountEnabled && (
-          <div className="mt-6 flex flex-col items-center gap-1">
-            <button
-              onClick={() => {
-                if (!autoOn) lastAutoAtRef.current = Date.now();
-                setAutoOn((v) => !v);
-              }}
-              className={`rounded-full px-4 py-2 text-xs ${selCls(autoOn)}`}
-            >
-              自动计数：{autoOn ? "开启" : "暂停"}
-            </button>
-            <p className="text-[11px] opacity-50">
-              间隔 {settings.autoCountInterval} 秒（可在设置中调整）
-            </p>
+        {(settings.autoCountEnabled || settings.resetCounterEnabled) && (
+          <div className="mt-6 flex flex-col items-center gap-2">
+            <div className="flex items-center gap-2 relative">
+              {settings.resetCounterEnabled && (
+                <button
+                  onClick={() => setShowResetMenu((v) => !v)}
+                  className="glass glass-hover rounded-full px-3 py-2 text-xs flex items-center gap-1"
+                  aria-label="重置计数器"
+                >
+                  <RefreshCw className="size-3" /> 重置
+                </button>
+              )}
+              {settings.autoCountEnabled && (
+                <button
+                  onClick={() => {
+                    if (!autoOn) lastAutoAtRef.current = Date.now();
+                    setAutoOn((v) => !v);
+                  }}
+                  className={`rounded-full px-4 py-2 text-xs ${selCls(autoOn)}`}
+                >
+                  自动计数：{autoOn ? "开启" : "暂停"}
+                </button>
+              )}
+              {showResetMenu && (
+                <div className="absolute top-full mt-2 left-0 glass-strong rounded-2xl p-2 flex flex-col gap-1 z-30 min-w-[140px] shadow-lg">
+                  <button
+                    onClick={() => doReset("today")}
+                    className="glass-hover rounded-xl px-3 py-2 text-xs text-left"
+                  >
+                    重置今日计数
+                  </button>
+                  <button
+                    onClick={() => doReset("total")}
+                    className="glass-hover rounded-xl px-3 py-2 text-xs text-left"
+                  >
+                    重置累计计数
+                  </button>
+                  <button
+                    onClick={() => setShowResetMenu(false)}
+                    className="glass-hover rounded-xl px-3 py-2 text-xs text-left opacity-60"
+                  >
+                    取消
+                  </button>
+                </div>
+              )}
+            </div>
+            {settings.autoCountEnabled && (
+              <p className="text-[11px] opacity-50">
+                间隔 {settings.autoCountInterval} 秒（可在设置中调整）
+              </p>
+            )}
           </div>
         )}
       </GlassCard>
@@ -551,7 +666,7 @@ const TIPS = [
 ];
 
 const NEURAL_INTRO =
-  "神经系统调节是帮助身体从紧张、焦虑或压力状态，回到平静、安全和稳定状态的过程。当你的神经系统更稳定时，你会更容易专注、坚持 A 肯定语，并减少被外界或旧想法影响，让日常生活和显化都变得更轻松、更自然。";
+  "神经系统调节是帮助身体从紧张、焦虑或压力状态，回到平静、安全和稳定状态的过程。当你的神经系统更稳定时，你会更容易专注保持正念，并减少被外界或旧想法影响，让日常生活和保持积极想法变得更轻松、更自然。";
 
 function BreathFocus() {
   const { settings, setSettings } = useApp();
@@ -867,16 +982,23 @@ function BreathBall({ running }: { running: boolean }) {
       ? "linear"
       : "cubic-bezier(0.42, 0, 0.58, 1)"; // smooth ease-in-out for inhale/exhale
 
+  const isDark = settings.theme === "dark";
+  const ballBg = isDark
+    ? "radial-gradient(circle at 35% 30%, rgba(50,80,140,0.98) 0%, rgba(25,45,95,0.95) 55%, rgba(12,25,60,0.92) 100%)"
+    : "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.98) 0%, rgba(240,248,255,0.95) 55%, rgba(220,235,250,0.92) 100%)";
+  const ballShadow = isDark
+    ? "0 20px 60px rgba(0,0,0,0.45), inset 0 0 40px rgba(255,255,255,0.08)"
+    : "0 20px 60px rgba(60,110,170,0.25), inset 0 0 40px rgba(255,255,255,0.35)";
+  const textColor = isDark ? "text-white" : "text-slate-900";
+
   return (
     <div className="flex flex-col items-center justify-center select-none py-6">
       <div className="relative" style={{ width: 260, height: 260 }}>
         <div
           className="absolute inset-0 rounded-full flex items-center justify-center"
           style={{
-            background:
-              "radial-gradient(circle at 35% 30%, rgba(220,240,255,0.95) 0%, rgba(150,200,235,0.85) 55%, rgba(110,170,215,0.75) 100%)",
-            boxShadow:
-              "0 20px 60px rgba(60, 110, 170, 0.35), inset 0 0 40px rgba(255,255,255,0.25)",
+            background: ballBg,
+            boxShadow: ballShadow,
             transform: `scale3d(${targetScale}, ${targetScale}, 1)`,
             transition: `transform ${transitionDur}s ${easing}`,
             willChange: "transform",
@@ -884,11 +1006,11 @@ function BreathBall({ running }: { running: boolean }) {
           }}
         >
           <div className="text-center">
-            <p className="font-display text-2xl mb-1 text-white drop-shadow">
+            <p className={`font-display text-2xl mb-1 ${textColor}`}>
               {running ? cur.label : "准备"}
             </p>
             {running && cur.sec > 0 && (
-              <p className="font-num tabular-nums text-3xl text-white/95 drop-shadow">
+              <p className={`font-num tabular-nums text-3xl ${textColor}`}>
                 {countdown}
               </p>
             )}
