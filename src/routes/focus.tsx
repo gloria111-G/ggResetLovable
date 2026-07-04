@@ -14,7 +14,8 @@ import {
   ACTIVE_SESSION_KEY_BREATH,
 } from "@/lib/storage";
 import { setWhiteNoise, stopWhiteNoise, getCurrentWhiteNoise, unlockWhiteNoise } from "@/lib/white-noise";
-import { Play, Pause, RotateCcw, Plus, Sparkles, Wind } from "lucide-react";
+import { Play, Pause, RotateCcw, Plus, Sparkles, Wind, RefreshCw } from "lucide-react";
+import { AutoCountWorker } from "@/lib/auto-count-worker";
 
 export const Route = createFileRoute("/focus")({
   head: () => ({ meta: [{ title: "进入专注 · GG RESET" }] }),
@@ -551,7 +552,7 @@ const TIPS = [
 ];
 
 const NEURAL_INTRO =
-  "神经系统调节是帮助身体从紧张、焦虑或压力状态，回到平静、安全和稳定状态的过程。当你的神经系统更稳定时，你会更容易专注、坚持 A 肯定语，并减少被外界或旧想法影响，让日常生活和显化都变得更轻松、更自然。";
+  "神经系统调节是帮助身体从紧张、焦虑或压力状态，回到平静、安全和稳定状态的过程。当你的神经系统更稳定时，你会更容易专注保持正念，并减少被外界或旧想法影响，让日常生活和保持积极想法变得更轻松、更自然。";
 
 function BreathFocus() {
   const { settings, setSettings } = useApp();
