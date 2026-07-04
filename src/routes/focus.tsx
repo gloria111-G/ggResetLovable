@@ -204,37 +204,65 @@ function AffirmFocus() {
     else saveSession(ACTIVE_SESSION_KEY_AFFIRM, null);
   }, [duration, count, running, selectedTag, selectedAff, autoOn]);
 
-  // Auto-count: time-delta catchup (correct even after backgrounding)
+  // ---- Worker-driven auto-count (accurate in background) ----
+  const workerRef = useRef<AutoCountWorker | null>(null);
+  const addCountRef = useRef<(n: number) => void>(() => {});
+
+  // Time-based catch-up: computes correct N counts based on wall clock,
+  // used both by the worker onTick and by visibility/focus events.
   const flushAutoCount = useCallback(() => {
     if (!running || !settings.autoCountEnabled || !autoOn) return;
-    const intervalMs = Math.max(0.1, settings.autoCountInterval) * 1000;
+    const intervalMs = Math.max(100, settings.autoCountInterval * 1000);
     const now = Date.now();
-    // Cap by allowed elapsed (don't count past countdown end)
     const e = computeElapsed();
     const limitMs = isStopwatch ? Infinity : Math.max(0, duration - e) * 1000;
     const elapsedSinceLast = Math.min(now - lastAutoAtRef.current, limitMs + intervalMs);
     const n = Math.floor(elapsedSinceLast / intervalMs);
     if (n > 0) {
       lastAutoAtRef.current += n * intervalMs;
-      addCount(n);
+      addCountRef.current(n);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running, autoOn, settings.autoCountEnabled, settings.autoCountInterval, duration, isStopwatch]);
 
-  // Main tick loop
+  // Boot worker once
+  useEffect(() => {
+    const w = new AutoCountWorker();
+    workerRef.current = w;
+    w.onTick(() => flushAutoCount());
+    return () => w.destroy();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep the ontick handler pointing at latest flushAutoCount
+  useEffect(() => {
+    workerRef.current?.onTick(() => flushAutoCount());
+  }, [flushAutoCount]);
+
+  // Start/stop worker with running+autoOn
+  useEffect(() => {
+    const w = workerRef.current;
+    if (!w) return;
+    if (running && settings.autoCountEnabled && autoOn) {
+      w.start(Math.max(0.1, settings.autoCountInterval), lastAutoAtRef.current);
+    } else {
+      w.stop();
+    }
+  }, [running, autoOn, settings.autoCountEnabled, settings.autoCountInterval]);
+
+  // Lightweight display tick for the timer text (raf, no logic)
   useEffect(() => {
     if (!running) return;
     let raf = 0;
     let last = 0;
     const loop = (t: number) => {
-      if (t - last > 120) {
+      if (t - last > 200) {
         last = t;
         const e = computeElapsed();
         if (!isStopwatch && e >= duration) {
           finish(true);
           return;
         }
-        flushAutoCount();
         forceTick((x) => (x + 1) % 1_000_000);
       }
       raf = requestAnimationFrame(loop);
@@ -242,7 +270,7 @@ function AffirmFocus() {
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [running, duration, isStopwatch, flushAutoCount]);
+  }, [running, duration, isStopwatch]);
 
   // Visibility recompute (handles background tabs / screen lock)
   useEffect(() => {
