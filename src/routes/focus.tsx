@@ -450,22 +450,56 @@ function AffirmFocus() {
           </span>
         </button>
 
-        {settings.autoCountEnabled && (
-          <div className="mt-6 flex flex-col items-center gap-1">
-            <button
-              onClick={() => {
-                if (!autoOn) lastAutoAtRef.current = Date.now();
-                setAutoOn((v) => !v);
+        <div className="mt-6 flex items-center justify-center gap-2 flex-wrap">
+          {settings.resetCounterEnabled && (
+            <ResetCounterButton
+              onResetToday={() => {
+                const td = todayKey();
+                setLogs((prev) =>
+                  prev.filter((l) => {
+                    if (l.date !== td) return true;
+                    if ((l.kind ?? "affirm") !== "affirm") return true;
+                    if (selectedAff) return l.affirmationId !== selectedAff;
+                    return !(l.tag === selectedTag && !l.affirmationId);
+                  }),
+                );
+                setCount(0);
               }}
-              className={`rounded-full px-4 py-2 text-xs ${selCls(autoOn)}`}
-            >
-              自动计数：{autoOn ? "开启" : "暂停"}
-            </button>
-            <p className="text-[11px] opacity-50">
-              间隔 {settings.autoCountInterval} 秒（可在设置中调整）
-            </p>
-          </div>
-        )}
+              onResetTotal={() => {
+                if (selectedAff) {
+                  setAffs((prev) =>
+                    prev.map((a) => (a.id === selectedAff ? { ...a, count: 0 } : a)),
+                  );
+                  setLogs((prev) => prev.filter((l) => l.affirmationId !== selectedAff));
+                } else {
+                  setLogs((prev) =>
+                    prev.filter(
+                      (l) =>
+                        !((l.kind ?? "affirm") === "affirm" && l.tag === selectedTag),
+                    ),
+                  );
+                }
+                setCount(0);
+              }}
+            />
+          )}
+          {settings.autoCountEnabled && (
+            <div className="flex flex-col items-center gap-1">
+              <button
+                onClick={() => {
+                  if (!autoOn) lastAutoAtRef.current = Date.now();
+                  setAutoOn((v) => !v);
+                }}
+                className={`rounded-full px-4 py-2 text-xs ${selCls(autoOn)}`}
+              >
+                自动计数：{autoOn ? "开启" : "暂停"}
+              </button>
+              <p className="text-[11px] opacity-50">
+                间隔 {settings.autoCountInterval} 秒（可在设置中调整）
+              </p>
+            </div>
+          )}
+        </div>
       </GlassCard>
 
       {/* Theme / affirmation selector */}
