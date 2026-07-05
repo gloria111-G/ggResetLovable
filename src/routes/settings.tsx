@@ -5,7 +5,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { UsageGuideContent } from "@/components/UsageGuide";
 import { useApp } from "@/lib/app-context";
 import { storage } from "@/lib/storage";
-import { setWhiteNoise, stopWhiteNoise } from "@/lib/white-noise";
+
 import {
   Download,
   Upload,
