@@ -158,6 +158,9 @@ function SettingsPage() {
         <GlassCard>
           <h2 className="font-display text-xl mb-4">专注页面</h2>
 
+          {/* ---- 肯定语页面 ---- */}
+          <p className="text-xs opacity-60 mb-2 tracking-widest">肯定语页面</p>
+
           <div className="mb-4">
             <p className="text-sm mb-2">计时模式 · 肯定语页面</p>
             <div className="flex gap-2">
@@ -176,30 +179,11 @@ function SettingsPage() {
             </div>
           </div>
 
-          <div className="mb-4">
-            <p className="text-sm mb-2">计时模式 · 呼吸调整页面</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setSettings((s) => ({ ...s, breathTimerMode: "countdown" }))}
-                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.breathTimerMode === "countdown")}`}
-              >
-                <Hourglass className="size-4" /> 倒计时
-              </button>
-              <button
-                onClick={() => setSettings((s) => ({ ...s, breathTimerMode: "stopwatch" }))}
-                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.breathTimerMode === "stopwatch")}`}
-              >
-                <Timer className="size-4" /> 正计时（秒表）
-              </button>
-            </div>
-          </div>
-
           <Toggle
             label="计数器音效提示"
             value={settings.sound}
             onChange={(v) => setSettings((s) => ({ ...s, sound: v }))}
           />
-
           <Toggle
             label="键盘计数（回车/空格 +1）"
             value={settings.keyboardCounter}
@@ -245,6 +229,12 @@ function SettingsPage() {
             </div>
           )}
 
+          <Toggle
+            label="显示计数器重置按钮"
+            value={settings.resetCounterEnabled}
+            onChange={(v) => setSettings((s) => ({ ...s, resetCounterEnabled: v }))}
+          />
+
           <div className="mt-4">
             <p className="text-sm mb-2">计数器显示</p>
             <div className="flex gap-2">
@@ -260,8 +250,29 @@ function SettingsPage() {
             </div>
           </div>
 
-          <div className="mt-4">
-            <p className="text-sm mb-2">呼吸调整</p>
+          {/* ---- 呼吸调整页面 ---- */}
+          <p className="text-xs opacity-60 mt-8 mb-2 tracking-widest">呼吸调整页面</p>
+
+          <div className="mb-4">
+            <p className="text-sm mb-2">计时模式 · 呼吸调整页面</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSettings((s) => ({ ...s, breathTimerMode: "countdown" }))}
+                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.breathTimerMode === "countdown")}`}
+              >
+                <Hourglass className="size-4" /> 倒计时
+              </button>
+              <button
+                onClick={() => setSettings((s) => ({ ...s, breathTimerMode: "stopwatch" }))}
+                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.breathTimerMode === "stopwatch")}`}
+              >
+                <Timer className="size-4" /> 正计时（秒表）
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-2">
+            <p className="text-sm mb-2">呼吸节奏</p>
             <div className="flex flex-wrap gap-2">
               {(["box", "478", "custom", "off"] as const).map((m) => (
                 <button
@@ -305,44 +316,44 @@ function SettingsPage() {
             )}
           </div>
 
-          <div className="mt-4">
-            <p className="text-sm mb-2">白噪音</p>
-            <div className="flex flex-wrap gap-2">
-              {(["off", "waves", "fire", "rain"] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setSettings((s) => ({ ...s, whiteNoise: m }))}
-                  className={`rounded-full px-3 py-1.5 text-xs ${selCls(settings.whiteNoise === m)}`}
-                >
-                  {m === "off"
-                    ? "关闭"
-                    : m === "waves"
-                      ? "🌊 海浪"
-                      : m === "fire"
-                        ? "🔥 篝火"
-                        : "🌧 下雨"}
-                </button>
-              ))}
-            </div>
-            {settings.whiteNoise !== "off" && (
-              <div className="mt-3">
-                <p className="text-xs opacity-70 mb-1">
-                  音量 {Math.round(settings.whiteNoiseVolume * 100)}%
-                </p>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={settings.whiteNoiseVolume}
-                  onChange={(e) =>
-                    setSettings((s) => ({ ...s, whiteNoiseVolume: Number(e.target.value) }))
-                  }
-                  className="w-full"
-                />
-              </div>
-            )}
+          {/* ---- 白噪音 ---- */}
+          <p className="text-xs opacity-60 mt-8 mb-2 tracking-widest">白噪音</p>
+
+          <div className="flex flex-wrap gap-2">
+            {(["off", "waves", "fire", "rain"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setSettings((s) => ({ ...s, whiteNoise: m }))}
+                className={`rounded-full px-3 py-1.5 text-xs ${selCls(settings.whiteNoise === m)}`}
+              >
+                {m === "off"
+                  ? "关闭"
+                  : m === "waves"
+                    ? "🌊 海浪"
+                    : m === "fire"
+                      ? "🔥 篝火"
+                      : "🌧 下雨"}
+              </button>
+            ))}
           </div>
+          {settings.whiteNoise !== "off" && (
+            <div className="mt-3">
+              <p className="text-xs opacity-70 mb-1">
+                音量 {Math.round(settings.whiteNoiseVolume * 100)}%
+              </p>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={settings.whiteNoiseVolume}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, whiteNoiseVolume: Number(e.target.value) }))
+                }
+                className="w-full"
+              />
+            </div>
+          )}
         </GlassCard>
 
         {/* Data */}
