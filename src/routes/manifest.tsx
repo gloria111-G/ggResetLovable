@@ -426,12 +426,16 @@ function ManifestPage() {
 
 function AffirmSettingsDialog({
   affirmation,
+  allTags,
   onSave,
+  onChangeTag,
   onDelete,
   onClose,
 }: {
   affirmation: Affirmation;
+  allTags: string[];
   onSave: (value: number) => void;
+  onChangeTag: (tag: string) => void;
   onDelete: () => void;
   onClose: () => void;
 }) {
@@ -454,6 +458,21 @@ function AffirmSettingsDialog({
         </button>
         <p className="text-[11px] opacity-60 mb-1">#{affirmation.tag}</p>
         <p className="font-display text-lg mb-4 pr-4">{affirmation.text}</p>
+
+        <p className="text-xs opacity-70 mb-2">所属标签（可切换，历史数据将迁移到新标签）</p>
+        <div className="flex flex-wrap gap-1.5 mb-5">
+          {allTags.map((t) => (
+            <button
+              key={t}
+              onClick={() => onChangeTag(t)}
+              className={`rounded-full px-3 py-1 text-xs ${
+                affirmation.tag === t ? "glass-strong selected-strong" : "glass"
+              }`}
+            >
+              #{t}
+            </button>
+          ))}
+        </div>
 
         <p className="text-xs opacity-70 mb-2">当前计数（可手动输入）</p>
         <div className="flex gap-2 mb-5">
