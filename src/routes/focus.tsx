@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell, GlassCard } from "@/components/AppShell";
 import { WheelDuration } from "@/components/WheelDuration";
-import { useApp, playFeedback, unlockAudio } from "@/lib/app-context";
+import { useApp, playFeedback, unlockAudio, startAutoTickSchedule, stopAutoTickSchedule } from "@/lib/app-context";
 import {
   useLocal,
   upsertDailyLog,
@@ -216,12 +216,10 @@ function AffirmFocus() {
     const n = Math.floor(elapsedSinceLast / intervalMs);
     if (n > 0) {
       lastAutoAtRef.current += n * intervalMs;
-      // Bulk catch-up after backgrounding: update counts silently so we don't
-      // fire N tick sounds at once ("bunched together"). Live in-foreground
-      // ticks come from a single-step call below.
-      const wasHidden = typeof document !== "undefined" && document.hidden;
-      if (n === 1 && !wasHidden) addCount(1);
-      else addCount(n, { silent: true });
+      // All auto-count updates are silent — the actual tick sound is fired
+      // by the Web Audio pre-scheduler (startAutoTickSchedule), which uses
+      // the audio clock and stays accurate even in the background.
+      addCount(n, { silent: true });
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
