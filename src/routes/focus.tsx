@@ -478,6 +478,10 @@ function AffirmFocus() {
             <Plus className="size-4" /> 点击 +1
           </span>
         </button>
+        <div className="mt-3 flex justify-center">
+          <PostureButton />
+        </div>
+
 
         <div className="mt-6 flex items-center justify-center gap-2 flex-wrap">
           {settings.resetCounterEnabled && (
