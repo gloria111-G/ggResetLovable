@@ -28,21 +28,25 @@ function PostureButton() {
   const { settings } = useApp();
   if (!settings.sound && settings.whiteNoise === "off") return null;
   return (
-    <button
-      type="button"
-      onClick={() => {
-        unlockAudio();
-        unlockWhiteNoise();
-        if (settings.whiteNoise !== "off") {
-          setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
-        }
-      }}
-      aria-label="恢复音频播放"
-      title="恢复音频播放"
-      className="glass glass-hover rounded-full size-9 flex items-center justify-center"
-    >
-      <Volume2 className="size-4" />
-    </button>
+    <div className="flex flex-col items-center gap-1">
+      <button
+        type="button"
+        onClick={() => {
+          unlockAudio();
+          unlockWhiteNoise();
+          if (settings.whiteNoise !== "off") {
+            setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
+            resumeWhiteNoise();
+          }
+        }}
+        aria-label="恢复音效"
+        title="恢复音效"
+        className="glass glass-hover rounded-full size-9 flex items-center justify-center"
+      >
+        <Volume2 className="size-4" />
+      </button>
+      <p className="text-[11px] opacity-50">恢复音效</p>
+    </div>
   );
 }
 
