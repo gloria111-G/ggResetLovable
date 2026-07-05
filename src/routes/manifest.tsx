@@ -404,9 +404,14 @@ function ManifestPage() {
       {editAff && (
         <AffirmSettingsDialog
           affirmation={editAff}
+          allTags={allTags}
           onSave={(v) => {
             saveAffirmCount(editAff.id, v);
             setEditAff(null);
+          }}
+          onChangeTag={(t) => {
+            changeAffirmTag(editAff.id, t);
+            setEditAff((prev) => (prev ? { ...prev, tag: t } : prev));
           }}
           onDelete={() => {
             setPending({ kind: "aff", id: editAff.id, text: editAff.text });
