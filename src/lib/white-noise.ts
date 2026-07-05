@@ -4,10 +4,8 @@
 // - Desired-state model: components call setWhiteNoise(mode, volume). The
 //   manager decides whether to (re)load / play / pause. It NEVER pauses to
 //   "unlock" an already-playing stream.
-// - Auto-recovery: exponential-backoff retry after interruption, plus
-//   listeners on visibilitychange / pageshow / focus / global touchstart /
-//   element pause so the stream reclaims the audio channel when other
-//   media finishes.
+// - Auto-recovery: on visibilitychange / pageshow / focus / element pause,
+//   if user wants noise on and it's not playing, resume it.
 // - Media Session: register lightweight metadata so iOS treats it as a real
 //   media session that survives interruptions.
 
@@ -32,12 +30,7 @@ let currentMode: WhiteNoise = "off";
 let desired: Desired = { mode: "off", volume: 0.5 };
 let unlocked = false;
 let listenersBound = false;
-
-// Exponential-backoff retry state
-let retryTimer: ReturnType<typeof setTimeout> | null = null;
-let retryDelay = 0;
-const RETRY_MIN = 1000;
-const RETRY_MAX = 8000;
+let recoveryScheduled = false;
 
 function ensureAudio(): HTMLAudioElement | null {
   if (typeof window === "undefined") return null;
@@ -56,18 +49,11 @@ function ensureAudio(): HTMLAudioElement | null {
     // Auto-recover when element is paused externally (interruption) but
     // the user still wants noise on.
     el.addEventListener("pause", () => {
-      if (desired.mode !== "off") scheduleRetry();
+      if (desired.mode !== "off") scheduleRecover();
     });
     el.addEventListener("ended", () => {
-      if (desired.mode !== "off") scheduleRetry();
-    });
-    // Success → clear backoff
-    el.addEventListener("playing", () => {
-      retryDelay = 0;
-      if (retryTimer) {
-        clearTimeout(retryTimer);
-        retryTimer = null;
-      }
+      // loop=true means this shouldn't fire, but be defensive.
+      if (desired.mode !== "off") scheduleRecover();
     });
     audio = el;
   }
@@ -75,44 +61,28 @@ function ensureAudio(): HTMLAudioElement | null {
   return audio;
 }
 
-function scheduleRetry() {
-  if (desired.mode === "off") return;
-  if (retryTimer) return; // already queued
-  retryDelay = retryDelay === 0 ? RETRY_MIN : Math.min(retryDelay * 2, RETRY_MAX);
-  retryTimer = setTimeout(() => {
-    retryTimer = null;
+function scheduleRecover() {
+  if (recoveryScheduled) return;
+  recoveryScheduled = true;
+  // Small delay so we don't fight an in-flight play() that's about to resolve.
+  setTimeout(() => {
+    recoveryScheduled = false;
     if (desired.mode === "off") return;
     tryPlayDesired();
-    // If still paused after attempt, queue the next backoff
-    if (audio && audio.paused && (desired.mode as WhiteNoise) !== "off") scheduleRetry();
-  }, retryDelay);
-}
-
-function wakeNow() {
-  if (desired.mode === "off") return;
-  // Cancel any pending backoff and try immediately on user-visible events.
-  if (retryTimer) {
-    clearTimeout(retryTimer);
-    retryTimer = null;
-  }
-  retryDelay = 0;
-  tryPlayDesired();
-  // If still not playing after this attempt, resume backoff
-  if (audio && audio.paused) scheduleRetry();
+  }, 120);
 }
 
 function bindGlobalListeners() {
   if (listenersBound || typeof window === "undefined") return;
   listenersBound = true;
+  const onWake = () => {
+    if (desired.mode !== "off") scheduleRecover();
+  };
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) wakeNow();
+    if (!document.hidden) onWake();
   });
-  window.addEventListener("focus", wakeNow);
-  window.addEventListener("pageshow", wakeNow);
-  // Any user tap anywhere is a chance to reclaim audio focus.
-  const onTap = () => wakeNow();
-  window.addEventListener("touchstart", onTap, { passive: true });
-  window.addEventListener("pointerdown", onTap, { passive: true });
+  window.addEventListener("focus", onWake);
+  window.addEventListener("pageshow", onWake);
 }
 
 function updateMediaSession(mode: WhiteNoise) {
@@ -129,8 +99,9 @@ function updateMediaSession(mode: WhiteNoise) {
       album: "白噪音",
     });
     navigator.mediaSession.playbackState = "playing";
-    navigator.mediaSession.setActionHandler?.("play", () => wakeNow());
+    navigator.mediaSession.setActionHandler?.("play", () => tryPlayDesired());
     navigator.mediaSession.setActionHandler?.("pause", () => {
+      // Respect user pausing from lockscreen: turn desired off.
       desired = { ...desired, mode: "off" };
       stopWhiteNoise();
     });
@@ -156,8 +127,7 @@ function tryPlayDesired() {
     const p = el.play();
     if (p && typeof p.catch === "function") {
       p.catch(() => {
-        // Autoplay blocked — retry with backoff / next user gesture.
-        if (desired.mode !== "off") scheduleRetry();
+        // Autoplay blocked — will retry on next user gesture / wake event.
       });
     }
   }
@@ -165,16 +135,20 @@ function tryPlayDesired() {
 }
 
 /**
- * Prime the white-noise element on a user gesture. iOS Safari requires this
- * before any programmatic play() will actually make sound. Does NOT stop
- * anything already playing.
+ * Prime audio on a user gesture. iOS Safari requires this before any
+ * programmatic play() will actually make sound. We do NOT play-then-pause
+ * (that killed running audio); instead we mark ourselves unlocked and let
+ * the next setWhiteNoise() call actually start playback.
  */
 export function unlockWhiteNoise() {
   const el = ensureAudio();
   if (!el || unlocked) return;
   unlocked = true;
+  // Bind a silent no-op play to unlock the element for future .play() calls
+  // WITHOUT stopping current audio.
   if (!el.src) {
     try {
+      // load a valid src at low volume so the priming play() succeeds
       el.src = SOURCES.waves;
       el.load();
       const originalVol = el.volume;
@@ -182,10 +156,13 @@ export function unlockWhiteNoise() {
       const p = el.play();
       if (p && typeof p.then === "function") {
         p.then(() => {
+          // Immediately stop so we don't spam audio when user didn't ask.
           el.pause();
           el.currentTime = 0;
           el.volume = originalVol;
           currentMode = "off";
+          // If user had already asked for noise (e.g. via Settings preview),
+          // fulfill it now.
           if (desired.mode !== "off") tryPlayDesired();
         }).catch(() => {
           el.volume = originalVol;
@@ -208,21 +185,11 @@ export function setWhiteNoise(mode: WhiteNoise, volume: number) {
     stopWhiteNoise();
     return;
   }
-  retryDelay = 0;
-  if (retryTimer) {
-    clearTimeout(retryTimer);
-    retryTimer = null;
-  }
   tryPlayDesired();
 }
 
 export function stopWhiteNoise() {
   desired = { ...desired, mode: "off" };
-  if (retryTimer) {
-    clearTimeout(retryTimer);
-    retryTimer = null;
-  }
-  retryDelay = 0;
   if (audio) {
     try {
       audio.pause();

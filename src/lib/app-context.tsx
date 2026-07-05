@@ -11,6 +11,7 @@ const C = createContext<Ctx | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [rawSettings, setRaw] = useLocal<Settings>("gg_settings", DEFAULT_SETTINGS);
+  // Merge stored settings with defaults so newly-added fields always have values
   const settings: Settings = { ...DEFAULT_SETTINGS, ...rawSettings };
   const setSettings = setRaw;
 
@@ -20,31 +21,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     else root.classList.remove("dark");
   }, [settings.theme]);
 
-  // Bind a one-shot global unlock on the first user gesture ANYWHERE in the
-  // app, so counter-tick audio works the moment the user taps — no need to
-  // start a timer or toggle white noise first.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    let done = false;
-    const handler = () => {
-      if (done) return;
-      done = true;
-      unlockAudio();
-      window.removeEventListener("pointerdown", handler);
-      window.removeEventListener("touchstart", handler);
-      window.removeEventListener("keydown", handler);
-    };
-    window.addEventListener("pointerdown", handler, { passive: true });
-    window.addEventListener("touchstart", handler, { passive: true });
-    window.addEventListener("keydown", handler);
-    return () => {
-      window.removeEventListener("pointerdown", handler);
-      window.removeEventListener("touchstart", handler);
-      window.removeEventListener("keydown", handler);
-    };
-  }, []);
-
   const bg = settings.customBg || (settings.theme === "dark" ? oceanBgDark : oceanBg);
+
+
 
   return (
     <C.Provider value={{ settings, setSettings }}>
@@ -60,26 +39,19 @@ export function useApp() {
   return v;
 }
 
-/* ============================================================
- * Counter tick audio engine
- * ------------------------------------------------------------
- * - Web Audio API fast path: pre-built AudioBuffer + BufferSource per tick.
- * - HTMLAudio fallback pool (6 nodes, all primed on unlock) — used whenever
- *   the AudioContext is suspended / interrupted / closed. Round-robin so
- *   rapid taps never block on a prior element's play() promise.
- * - Auto-heal: on visibility / focus / any user gesture, resume or rebuild
- *   the AudioContext.
- * - Pre-scheduling API: scheduleAutoTicks() queues future BufferSources on
- *   the Web Audio clock so auto-count ticks fire at exact intervals even
- *   when the JS thread is throttled (background tab).
- * ============================================================ */
+// ---------- Counter tick sound ----------
+// Uses Web Audio API with a pre-built AudioBuffer for zero-latency,
+// non-blocking playback. Every tick spawns a fresh BufferSource so
+// rapid calls overlap instead of queueing.
 
 let audioCtx: AudioContext | null = null;
 let tickBuffer: AudioBuffer | null = null;
 let tickGain: GainNode | null = null;
 let ctxListenersBound = false;
 
-// HTMLAudio fallback pool
+// HTMLAudio fallback pool (when Web Audio is unavailable / interrupted).
+// Small round-robin of 6 identical <audio> nodes → overlapping playback
+// without waiting on a single element's `play()` promise.
 let poolReady = false;
 const pool: HTMLAudioElement[] = [];
 let poolIdx = 0;
@@ -155,8 +127,6 @@ function bindCtxListeners() {
         (audioCtx.state as string) === "interrupted")
     ) {
       audioCtx.resume().catch(() => rebuildCtx());
-    } else if (!audioCtx || (audioCtx.state as string) === "closed") {
-      rebuildCtx();
     }
   };
   document.addEventListener("visibilitychange", () => {
@@ -164,9 +134,6 @@ function bindCtxListeners() {
   });
   window.addEventListener("focus", wake);
   window.addEventListener("pageshow", wake);
-  // Any tap is also a chance to reclaim audio.
-  window.addEventListener("touchstart", wake, { passive: true });
-  window.addEventListener("pointerdown", wake, { passive: true });
 }
 
 function rebuildCtx() {
@@ -188,7 +155,7 @@ function getCtx(): AudioContext | null {
       (window as unknown as { webkitAudioContext: typeof AudioContext })
         .webkitAudioContext;
     if (!AC) return null;
-    audioCtx = new AC({ latencyHint: "interactive" } as AudioContextOptions);
+    audioCtx = new AC();
     tickGain = audioCtx.createGain();
     tickGain.gain.value = 0.55;
     tickGain.connect(audioCtx.destination);
@@ -213,40 +180,34 @@ function buildTickBuffer(ctx: AudioContext): AudioBuffer {
   return buf;
 }
 
-function primeOnePoolElement(a: HTMLAudioElement) {
-  const originalVol = a.volume;
-  try {
+/** Call from a user-gesture handler (e.g. Start button) to unlock audio on iOS. */
+export function unlockAudio() {
+  ensurePool();
+  const ctx = getCtx();
+  if (!ctx) return;
+  if (ctx.state === "suspended") ctx.resume().catch(() => {});
+  // Prime the pool silently so iOS accepts later .play() calls.
+  if (pool.length) {
+    const a = pool[0];
+    const v = a.volume;
     a.volume = 0;
     const p = a.play();
     if (p && typeof p.then === "function") {
       p.then(() => {
-        try {
-          a.pause();
-          a.currentTime = 0;
-        } catch {}
-        a.volume = originalVol;
+        a.pause();
+        a.currentTime = 0;
+        a.volume = v;
       }).catch(() => {
-        a.volume = originalVol;
+        a.volume = v;
       });
     }
-  } catch {
-    a.volume = originalVol;
   }
-}
-
-/** Call from a user-gesture handler to unlock audio on iOS. Primes ALL pool
- *  elements so every round-robin slot works. */
-export function unlockAudio() {
-  ensurePool();
-  const ctx = getCtx();
-  if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {});
-  // Prime EVERY element in the pool so all round-robin slots are usable.
-  for (const a of pool) primeOnePoolElement(a);
 }
 
 export function playFeedback(settings: Settings) {
   if (!settings.sound) return;
   const ctx = getCtx();
+  // Web Audio fast-path — non-blocking, overlaps freely.
   if (ctx && tickBuffer && tickGain && ctx.state === "running") {
     try {
       const src = ctx.createBufferSource();
@@ -258,84 +219,14 @@ export function playFeedback(settings: Settings) {
       // fall through
     }
   }
+  // Web Audio is suspended/interrupted/closed — kick a resume AND play a
+  // pool tick immediately so the user hears feedback right now.
   if (ctx && ctx.state !== "running") {
     ctx.resume().catch(() => rebuildCtx());
   }
   playPoolTick();
 }
 
-/* ---------- Auto-count tick pre-scheduler ----------
- * Queues future BufferSources on the Web Audio timeline so ticks fire on
- * the audio clock, not the (throttled) JS event loop. Refreshes the queue
- * every 500ms to keep the next ~3s of ticks scheduled.
- */
 
-type ScheduledTick = { when: number; src: AudioBufferSourceNode };
-let scheduled: ScheduledTick[] = [];
-let schedulerTimer: ReturnType<typeof setInterval> | null = null;
-let schedulerIntervalSec = 1;
-let schedulerAnchor = 0; // audio-clock time of "tick #0"
-let schedulerNextIndex = 0;
-const LOOKAHEAD_SEC = 3;
 
-function pruneScheduled(now: number) {
-  scheduled = scheduled.filter((t) => t.when > now - 0.05);
-}
 
-function scheduleUpcoming() {
-  const ctx = getCtx();
-  if (!ctx || !tickBuffer || !tickGain) return;
-  if (ctx.state !== "running") {
-    ctx.resume().catch(() => rebuildCtx());
-    return;
-  }
-  const now = ctx.currentTime;
-  pruneScheduled(now);
-  const horizon = now + LOOKAHEAD_SEC;
-  while (true) {
-    const when = schedulerAnchor + schedulerNextIndex * schedulerIntervalSec;
-    if (when > horizon) break;
-    if (when >= now - 0.02) {
-      try {
-        const src = ctx.createBufferSource();
-        src.buffer = tickBuffer;
-        src.connect(tickGain);
-        src.start(Math.max(when, now));
-        scheduled.push({ when, src });
-      } catch {
-        break;
-      }
-    }
-    schedulerNextIndex++;
-  }
-}
-
-/** Begin scheduling auto-count tick sounds every `intervalSec`.
- *  First tick fires at `firstAtEpochMs` (wall-clock ms). */
-export function startAutoTickSchedule(intervalSec: number, firstAtEpochMs: number) {
-  const ctx = getCtx();
-  if (!ctx) return;
-  stopAutoTickSchedule();
-  schedulerIntervalSec = Math.max(0.1, intervalSec);
-  // Convert wall-clock start into audio-clock time.
-  const nowMs = Date.now();
-  const deltaSec = (firstAtEpochMs - nowMs) / 1000;
-  schedulerAnchor = ctx.currentTime + deltaSec;
-  schedulerNextIndex = 0;
-  scheduleUpcoming();
-  schedulerTimer = setInterval(scheduleUpcoming, 500);
-}
-
-export function stopAutoTickSchedule() {
-  if (schedulerTimer) {
-    clearInterval(schedulerTimer);
-    schedulerTimer = null;
-  }
-  for (const t of scheduled) {
-    try {
-      t.src.stop();
-    } catch {}
-  }
-  scheduled = [];
-  schedulerNextIndex = 0;
-}
