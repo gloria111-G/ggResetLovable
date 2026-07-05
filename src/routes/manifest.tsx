@@ -6,10 +6,13 @@ import {
   useLocal,
   type Affirmation,
   type Goal,
+  type FocusLog,
   DEFAULT_TAGS,
   uid,
+  todayKey,
+  upsertDailyLog,
 } from "@/lib/storage";
-import { Check, Plus, Trash2, Sparkles, GripVertical, X } from "lucide-react";
+import { Check, Plus, Trash2, Sparkles, GripVertical, X, Settings as SettingsIcon } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -31,7 +34,7 @@ import { CSS } from "@dnd-kit/utilities";
 
 
 export const Route = createFileRoute("/manifest")({
-  head: () => ({ meta: [{ title: "显化列表 · GG RESET" }] }),
+  head: () => ({ meta: [{ title: "目标列表 · GG RESET" }] }),
   component: ManifestPage,
 });
 
@@ -43,6 +46,7 @@ type PendingDelete =
 function ManifestPage() {
   const [goals, setGoals] = useLocal<Goal[]>("gg_goals", []);
   const [affs, setAffs] = useLocal<Affirmation[]>("gg_affirmations", []);
+  const [logs, setLogs] = useLocal<FocusLog[]>("gg_focus_logs", []);
   const [customTags, setCustomTags] = useLocal<string[]>("gg_tags", []);
 
   const allTags = useMemo(
@@ -56,8 +60,8 @@ function ManifestPage() {
   const [newTag, setNewTag] = useState("");
   const [celebrate, setCelebrate] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingDelete | null>(null);
+  const [editAff, setEditAff] = useState<Affirmation | null>(null);
 
-  // Goals: sort by `order` then createdAt
   const sortedGoals = useMemo(() => {
     return [...goals].sort((a, b) => {
       const ao = a.order ?? a.createdAt;
@@ -93,12 +97,11 @@ function ManifestPage() {
     );
     const g = goals.find((x) => x.id === id);
     if (g && !g.done) {
-      setCelebrate("恭喜你显化成功！✨");
+      setCelebrate("恭喜你完成目标 ✨");
       setTimeout(() => setCelebrate(null), 2200);
     }
   }
 
-  // dnd-kit sensors — supports pointer + touch + keyboard
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
@@ -142,15 +145,34 @@ function ManifestPage() {
   function confirmDelete() {
     if (!pending) return;
     if (pending.kind === "goal") setGoals((p) => p.filter((g) => g.id !== pending.id));
-    if (pending.kind === "aff") setAffs((p) => p.filter((a) => a.id !== pending.id));
+    if (pending.kind === "aff") {
+      setAffs((p) => p.filter((a) => a.id !== pending.id));
+      setLogs((p) => p.filter((l) => l.affirmationId !== pending.id));
+    }
     if (pending.kind === "tag") {
       setCustomTags((p) => p.filter((t) => t !== pending.tag));
-      // do NOT delete affirmations under that tag automatically
+    }
+  }
+
+  function saveAffirmCount(id: string, newValue: number) {
+    const target = affs.find((a) => a.id === id);
+    if (!target) return;
+    const delta = newValue - target.count;
+    setAffs((prev) => prev.map((a) => (a.id === id ? { ...a, count: newValue } : a)));
+    if (delta !== 0) {
+      setLogs((prev) =>
+        upsertDailyLog(prev, {
+          tag: target.tag,
+          affId: id,
+          addCount: delta,
+          kind: "affirm",
+        }),
+      );
     }
   }
 
   return (
-    <AppShell title="显化列表">
+    <AppShell title="目标列表">
       {celebrate && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 glass-strong rounded-full px-6 py-3 z-50 font-display text-lg">
           {celebrate}
@@ -238,30 +260,30 @@ function ManifestPage() {
                   #{a.tag}
                 </span>
                 <span className="flex-1 text-sm">{a.text}</span>
-                <span className="text-xs tabular-nums opacity-70">×{a.count}</span>
+                <span className="text-xs tabular-nums opacity-70 font-num">×{a.count}</span>
                 <button
-                  onClick={() => setPending({ kind: "aff", id: a.id, text: a.text })}
-                  className="opacity-40 hover:opacity-100"
-                  aria-label="删除肯定语"
+                  onClick={() => setEditAff(a)}
+                  className="opacity-50 hover:opacity-100"
+                  aria-label="肯定语设置"
                 >
-                  <Trash2 className="size-4" />
+                  <SettingsIcon className="size-4" />
                 </button>
               </div>
             ))}
           </div>
         </GlassCard>
 
-        {/* Goals AFTER */}
+        {/* Goals */}
         <GlassCard>
-          <h2 className="font-display text-2xl mb-1">显化列表 · 你会得到：</h2>
-          <p className="text-xs opacity-60 mb-4">轻轻写下，已经完成。可拖拽调整顺序。</p>
+          <h2 className="font-display text-2xl mb-1">目标列表</h2>
+          <p className="text-xs opacity-60 mb-4">可拖拽调整顺序。</p>
 
           <div className="flex gap-2 mb-5">
             <input
               value={goalInput}
               onChange={(e) => setGoalInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addGoal()}
-              placeholder="写下一个你想显化的目标…"
+              placeholder="写下一个你想实现的目标…"
               className="flex-1 glass rounded-full px-4 py-2.5 text-sm outline-none placeholder:opacity-50"
             />
             <button
@@ -274,7 +296,7 @@ function ManifestPage() {
 
           <div className="space-y-2">
             {active.length === 0 && (
-              <p className="text-sm opacity-50 text-center py-4">还没有目标，写下第一个吧。</p>
+              <p className="text-sm opacity-50 text-center py-4">写下第一个想实现的目标吧。</p>
             )}
             <DndContext
               sensors={sensors}
@@ -301,7 +323,7 @@ function ManifestPage() {
 
           {done.length > 0 && (
             <div className="mt-6">
-              <p className="font-display text-lg mb-3">已落地：</p>
+              <p className="font-display text-lg mb-3">已实现：</p>
               <div className="space-y-2">
                 {done.map((g) => (
                   <div
@@ -346,7 +368,88 @@ function ManifestPage() {
         onConfirm={confirmDelete}
         onClose={() => setPending(null)}
       />
+
+      {editAff && (
+        <AffirmSettingsDialog
+          affirmation={editAff}
+          onSave={(v) => {
+            saveAffirmCount(editAff.id, v);
+            setEditAff(null);
+          }}
+          onDelete={() => {
+            setPending({ kind: "aff", id: editAff.id, text: editAff.text });
+            setEditAff(null);
+          }}
+          onClose={() => setEditAff(null)}
+        />
+      )}
     </AppShell>
+  );
+}
+
+function AffirmSettingsDialog({
+  affirmation,
+  onSave,
+  onDelete,
+  onClose,
+}: {
+  affirmation: Affirmation;
+  onSave: (value: number) => void;
+  onDelete: () => void;
+  onClose: () => void;
+}) {
+  const [val, setVal] = useState(String(affirmation.count));
+  return (
+    <div
+      className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-md flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="glass-strong rounded-3xl p-5 w-full max-w-sm relative"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 glass rounded-full size-8 flex items-center justify-center"
+          aria-label="关闭"
+        >
+          <X className="size-3.5" />
+        </button>
+        <p className="text-[11px] opacity-60 mb-1">#{affirmation.tag}</p>
+        <p className="font-display text-lg mb-4 pr-4">{affirmation.text}</p>
+
+        <p className="text-xs opacity-70 mb-2">当前计数（可手动输入）</p>
+        <div className="flex gap-2 mb-5">
+          <input
+            type="number"
+            min={0}
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            className="flex-1 glass rounded-full px-4 py-2.5 text-lg font-num text-center outline-none"
+            autoFocus
+          />
+          <button
+            onClick={() => {
+              const n = Math.max(0, Math.floor(Number(val) || 0));
+              onSave(n);
+            }}
+            className="glass-strong selected-strong glass-hover rounded-full px-5 text-sm"
+          >
+            保存
+          </button>
+        </div>
+
+        <button
+          onClick={onDelete}
+          className="w-full glass glass-hover rounded-2xl px-4 py-2.5 text-sm text-red-500/90 flex items-center justify-center gap-2"
+        >
+          <Trash2 className="size-4" /> 删除肯定语
+        </button>
+        <p className="text-[11px] opacity-55 text-center mt-3">
+          保存后数值会即时同步到计数器和数据中心。
+        </p>
+      </div>
+    </div>
   );
 }
 

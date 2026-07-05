@@ -15,6 +15,7 @@ import {
 } from "@/lib/storage";
 import { setWhiteNoise, stopWhiteNoise, getCurrentWhiteNoise, unlockWhiteNoise } from "@/lib/white-noise";
 import { Play, Pause, RotateCcw, Plus, Sparkles, Wind } from "lucide-react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export const Route = createFileRoute("/focus")({
   head: () => ({ meta: [{ title: "进入专注 · GG RESET" }] }),
@@ -449,22 +450,56 @@ function AffirmFocus() {
           </span>
         </button>
 
-        {settings.autoCountEnabled && (
-          <div className="mt-6 flex flex-col items-center gap-1">
-            <button
-              onClick={() => {
-                if (!autoOn) lastAutoAtRef.current = Date.now();
-                setAutoOn((v) => !v);
+        <div className="mt-6 flex items-center justify-center gap-2 flex-wrap">
+          {settings.resetCounterEnabled && (
+            <ResetCounterButton
+              onResetToday={() => {
+                const td = todayKey();
+                setLogs((prev) =>
+                  prev.filter((l) => {
+                    if (l.date !== td) return true;
+                    if ((l.kind ?? "affirm") !== "affirm") return true;
+                    if (selectedAff) return l.affirmationId !== selectedAff;
+                    return !(l.tag === selectedTag && !l.affirmationId);
+                  }),
+                );
+                setCount(0);
               }}
-              className={`rounded-full px-4 py-2 text-xs ${selCls(autoOn)}`}
-            >
-              自动计数：{autoOn ? "开启" : "暂停"}
-            </button>
-            <p className="text-[11px] opacity-50">
-              间隔 {settings.autoCountInterval} 秒（可在设置中调整）
-            </p>
-          </div>
-        )}
+              onResetTotal={() => {
+                if (selectedAff) {
+                  setAffs((prev) =>
+                    prev.map((a) => (a.id === selectedAff ? { ...a, count: 0 } : a)),
+                  );
+                  setLogs((prev) => prev.filter((l) => l.affirmationId !== selectedAff));
+                } else {
+                  setLogs((prev) =>
+                    prev.filter(
+                      (l) =>
+                        !((l.kind ?? "affirm") === "affirm" && l.tag === selectedTag),
+                    ),
+                  );
+                }
+                setCount(0);
+              }}
+            />
+          )}
+          {settings.autoCountEnabled && (
+            <div className="flex flex-col items-center gap-1">
+              <button
+                onClick={() => {
+                  if (!autoOn) lastAutoAtRef.current = Date.now();
+                  setAutoOn((v) => !v);
+                }}
+                className={`rounded-full px-4 py-2 text-xs ${selCls(autoOn)}`}
+              >
+                自动计数：{autoOn ? "开启" : "暂停"}
+              </button>
+              <p className="text-[11px] opacity-50">
+                间隔 {settings.autoCountInterval} 秒（可在设置中调整）
+              </p>
+            </div>
+          )}
+        </div>
       </GlassCard>
 
       {/* Theme / affirmation selector */}
@@ -491,7 +526,7 @@ function AffirmFocus() {
           ) : (
             <>
               <p className="text-[11px] opacity-60 text-center">
-                可选具体肯定语，未选时聚焦整个主题
+                可选择具体肯定语，未选择时默认专注整个主题
               </p>
               {filteredAffs.map((a) => (
                 <button
@@ -515,6 +550,76 @@ function AffirmFocus() {
       </GlassCard>
 
       {celebrated && <Celebration />}
+    </div>
+  );
+}
+
+function ResetCounterButton({
+  onResetToday,
+  onResetTotal,
+}: {
+  onResetToday: () => void;
+  onResetTotal: () => void;
+}) {
+  const [menu, setMenu] = useState(false);
+  const [confirm, setConfirm] = useState<null | "today" | "total">(null);
+  return (
+    <div className="relative flex flex-col items-center gap-1">
+      <button
+        onClick={() => setMenu((v) => !v)}
+        className="glass rounded-full px-3 py-2 text-xs flex items-center gap-1"
+        aria-label="重置计数"
+      >
+        <RotateCcw className="size-3.5" /> 重置
+      </button>
+      {menu && (
+        <div
+          className="fixed inset-0 z-[55]"
+          onClick={() => setMenu(false)}
+        >
+          <div
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 glass-strong rounded-2xl p-2 min-w-[180px] flex flex-col gap-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => {
+                setMenu(false);
+                setConfirm("today");
+              }}
+              className="rounded-xl px-4 py-2.5 text-sm hover:bg-white/20 text-left"
+            >
+              清空今日计数
+            </button>
+            <button
+              onClick={() => {
+                setMenu(false);
+                setConfirm("total");
+              }}
+              className="rounded-xl px-4 py-2.5 text-sm hover:bg-white/20 text-left"
+            >
+              清空累计计数
+            </button>
+            <button
+              onClick={() => setMenu(false)}
+              className="rounded-xl px-4 py-2.5 text-sm hover:bg-white/20 text-left opacity-70"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
+      <ConfirmDialog
+        open={!!confirm}
+        title="清空计数无法恢复"
+        description={confirm === "today" ? "将清空今日的计数记录。" : "将清空该项目全部累计计数。"}
+        confirmText="确定"
+        cancelText="取消"
+        onConfirm={() => {
+          if (confirm === "today") onResetToday();
+          if (confirm === "total") onResetTotal();
+        }}
+        onClose={() => setConfirm(null)}
+      />
     </div>
   );
 }
@@ -551,7 +656,7 @@ const TIPS = [
 ];
 
 const NEURAL_INTRO =
-  "神经系统调节是帮助身体从紧张、焦虑或压力状态，回到平静、安全和稳定状态的过程。当你的神经系统更稳定时，你会更容易专注、坚持 A 肯定语，并减少被外界或旧想法影响，让日常生活和显化都变得更轻松、更自然。";
+  "神经系统调节是帮助身体从紧张、焦虑或压力状态，回到平静、安全和稳定状态的过程。当你更稳定时，你会更容易专注保持积极思考，并减少被外界或旧想法影响，让日常生活和保持积极想法变得更轻松、更自然。";
 
 function BreathFocus() {
   const { settings, setSettings } = useApp();
@@ -686,7 +791,7 @@ function BreathFocus() {
     if (secs > 0) {
       setLogs((prev) =>
         upsertDailyLog(prev, {
-          tag: "神经系统调节",
+          tag: "呼吸调整",
           addDuration: secs,
           kind: "breath",
         }),
@@ -867,16 +972,23 @@ function BreathBall({ running }: { running: boolean }) {
       ? "linear"
       : "cubic-bezier(0.42, 0, 0.58, 1)"; // smooth ease-in-out for inhale/exhale
 
+  const isDark = settings.theme === "dark";
+  const ballBg = isDark
+    ? "radial-gradient(circle at 35% 30%, rgba(60,90,150,0.95) 0%, rgba(30,55,110,0.92) 60%, rgba(20,35,80,0.9) 100%)"
+    : "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.98) 0%, rgba(235,245,255,0.95) 60%, rgba(210,225,245,0.9) 100%)";
+  const ballShadow = isDark
+    ? "0 20px 60px rgba(0,0,0,0.55), inset 0 0 40px rgba(255,255,255,0.08)"
+    : "0 20px 60px rgba(60,110,170,0.35), inset 0 0 40px rgba(255,255,255,0.4)";
+  const textColor = isDark ? "text-white" : "text-slate-900";
+
   return (
     <div className="flex flex-col items-center justify-center select-none py-6">
       <div className="relative" style={{ width: 260, height: 260 }}>
         <div
           className="absolute inset-0 rounded-full flex items-center justify-center"
           style={{
-            background:
-              "radial-gradient(circle at 35% 30%, rgba(220,240,255,0.95) 0%, rgba(150,200,235,0.85) 55%, rgba(110,170,215,0.75) 100%)",
-            boxShadow:
-              "0 20px 60px rgba(60, 110, 170, 0.35), inset 0 0 40px rgba(255,255,255,0.25)",
+            background: ballBg,
+            boxShadow: ballShadow,
             transform: `scale3d(${targetScale}, ${targetScale}, 1)`,
             transition: `transform ${transitionDur}s ${easing}`,
             willChange: "transform",
@@ -884,11 +996,11 @@ function BreathBall({ running }: { running: boolean }) {
           }}
         >
           <div className="text-center">
-            <p className="font-display text-2xl mb-1 text-white drop-shadow">
+            <p className={`font-display text-2xl mb-1 ${textColor}`}>
               {running ? cur.label : "准备"}
             </p>
             {running && cur.sec > 0 && (
-              <p className="font-num tabular-nums text-3xl text-white/95 drop-shadow">
+              <p className={`font-num tabular-nums text-3xl ${textColor}`}>
                 {countdown}
               </p>
             )}

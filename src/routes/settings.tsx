@@ -38,6 +38,7 @@ function SettingsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const bgRef = useRef<HTMLInputElement>(null);
   const [showDonate, setShowDonate] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
 
@@ -158,6 +159,9 @@ function SettingsPage() {
         <GlassCard>
           <h2 className="font-display text-xl mb-4">专注页面</h2>
 
+          {/* ---- 肯定语页面 ---- */}
+          <p className="text-xs opacity-60 mb-2 tracking-widest">肯定语页面</p>
+
           <div className="mb-4">
             <p className="text-sm mb-2">计时模式 · 肯定语页面</p>
             <div className="flex gap-2">
@@ -176,30 +180,11 @@ function SettingsPage() {
             </div>
           </div>
 
-          <div className="mb-4">
-            <p className="text-sm mb-2">计时模式 · 呼吸调整页面</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setSettings((s) => ({ ...s, breathTimerMode: "countdown" }))}
-                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.breathTimerMode === "countdown")}`}
-              >
-                <Hourglass className="size-4" /> 倒计时
-              </button>
-              <button
-                onClick={() => setSettings((s) => ({ ...s, breathTimerMode: "stopwatch" }))}
-                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.breathTimerMode === "stopwatch")}`}
-              >
-                <Timer className="size-4" /> 正计时（秒表）
-              </button>
-            </div>
-          </div>
-
           <Toggle
             label="计数器音效提示"
             value={settings.sound}
             onChange={(v) => setSettings((s) => ({ ...s, sound: v }))}
           />
-
           <Toggle
             label="键盘计数（回车/空格 +1）"
             value={settings.keyboardCounter}
@@ -245,6 +230,12 @@ function SettingsPage() {
             </div>
           )}
 
+          <Toggle
+            label="显示计数器重置按钮"
+            value={settings.resetCounterEnabled}
+            onChange={(v) => setSettings((s) => ({ ...s, resetCounterEnabled: v }))}
+          />
+
           <div className="mt-4">
             <p className="text-sm mb-2">计数器显示</p>
             <div className="flex gap-2">
@@ -260,8 +251,29 @@ function SettingsPage() {
             </div>
           </div>
 
-          <div className="mt-4">
-            <p className="text-sm mb-2">呼吸调整</p>
+          {/* ---- 呼吸调整页面 ---- */}
+          <p className="text-xs opacity-60 mt-8 mb-2 tracking-widest">呼吸调整页面</p>
+
+          <div className="mb-4">
+            <p className="text-sm mb-2">计时模式 · 呼吸调整页面</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSettings((s) => ({ ...s, breathTimerMode: "countdown" }))}
+                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.breathTimerMode === "countdown")}`}
+              >
+                <Hourglass className="size-4" /> 倒计时
+              </button>
+              <button
+                onClick={() => setSettings((s) => ({ ...s, breathTimerMode: "stopwatch" }))}
+                className={`flex-1 rounded-2xl px-3 py-2.5 text-sm flex items-center justify-center gap-2 ${selCls(settings.breathTimerMode === "stopwatch")}`}
+              >
+                <Timer className="size-4" /> 正计时（秒表）
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-2">
+            <p className="text-sm mb-2">呼吸节奏</p>
             <div className="flex flex-wrap gap-2">
               {(["box", "478", "custom", "off"] as const).map((m) => (
                 <button
@@ -305,44 +317,44 @@ function SettingsPage() {
             )}
           </div>
 
-          <div className="mt-4">
-            <p className="text-sm mb-2">白噪音</p>
-            <div className="flex flex-wrap gap-2">
-              {(["off", "waves", "fire", "rain"] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setSettings((s) => ({ ...s, whiteNoise: m }))}
-                  className={`rounded-full px-3 py-1.5 text-xs ${selCls(settings.whiteNoise === m)}`}
-                >
-                  {m === "off"
-                    ? "关闭"
-                    : m === "waves"
-                      ? "🌊 海浪"
-                      : m === "fire"
-                        ? "🔥 篝火"
-                        : "🌧 下雨"}
-                </button>
-              ))}
-            </div>
-            {settings.whiteNoise !== "off" && (
-              <div className="mt-3">
-                <p className="text-xs opacity-70 mb-1">
-                  音量 {Math.round(settings.whiteNoiseVolume * 100)}%
-                </p>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={settings.whiteNoiseVolume}
-                  onChange={(e) =>
-                    setSettings((s) => ({ ...s, whiteNoiseVolume: Number(e.target.value) }))
-                  }
-                  className="w-full"
-                />
-              </div>
-            )}
+          {/* ---- 白噪音 ---- */}
+          <p className="text-xs opacity-60 mt-8 mb-2 tracking-widest">白噪音</p>
+
+          <div className="flex flex-wrap gap-2">
+            {(["off", "waves", "fire", "rain"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setSettings((s) => ({ ...s, whiteNoise: m }))}
+                className={`rounded-full px-3 py-1.5 text-xs ${selCls(settings.whiteNoise === m)}`}
+              >
+                {m === "off"
+                  ? "关闭"
+                  : m === "waves"
+                    ? "🌊 海浪"
+                    : m === "fire"
+                      ? "🔥 篝火"
+                      : "🌧 下雨"}
+              </button>
+            ))}
           </div>
+          {settings.whiteNoise !== "off" && (
+            <div className="mt-3">
+              <p className="text-xs opacity-70 mb-1">
+                音量 {Math.round(settings.whiteNoiseVolume * 100)}%
+              </p>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={settings.whiteNoiseVolume}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, whiteNoiseVolume: Number(e.target.value) }))
+                }
+                className="w-full"
+              />
+            </div>
+          )}
         </GlassCard>
 
         {/* Data */}
@@ -376,6 +388,12 @@ function SettingsPage() {
             />
           </div>
           <p className="text-xs opacity-60 mt-3">所有数据存储在你的浏览器本地，从不上传。</p>
+          <button
+            onClick={() => setShowChangelog(true)}
+            className="mt-4 glass glass-hover rounded-2xl px-4 py-3 text-sm inline-flex items-center gap-2"
+          >
+            <BookOpen className="size-4" /> 更新日志
+          </button>
         </GlassCard>
 
         {/* Donate */}
@@ -424,6 +442,35 @@ function SettingsPage() {
               </div>
             </div>
             <p className="text-center text-xs opacity-70 mt-4">感谢您的支持</p>
+          </div>
+        </div>
+      )}
+
+      {showChangelog && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4"
+          onClick={() => setShowChangelog(false)}
+        >
+          <div
+            className="glass-strong rounded-3xl p-6 w-full max-w-md relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowChangelog(false)}
+              className="absolute top-3 right-3 glass rounded-full size-9 flex items-center justify-center"
+              aria-label="关闭"
+            >
+              <X className="size-4" />
+            </button>
+            <h3 className="font-display text-xl mb-4">更新日志</h3>
+            <div className="space-y-4 text-sm leading-relaxed">
+              <div>
+                <p className="font-medium mb-1">2026 / 7</p>
+                <p className="opacity-85">
+                  更新肯定语数值手动调整、重置计数器功能，调整呼吸球颜色对比，调整设置顺序，更新后台播放白噪音计数器音效功能。其他功能仍在开发中敬请期待！
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}
