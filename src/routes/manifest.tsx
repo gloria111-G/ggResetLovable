@@ -172,6 +172,37 @@ function ManifestPage() {
     }
   }
 
+  /** Change an affirmation's tag AND migrate every prior FocusLog entry
+   *  for that affirmation to the new tag, so the data center reflects the
+   *  move instantly (count + duration). Logs sharing the same date+affId
+   *  after remap are merged. */
+  function changeAffirmTag(id: string, newTag: string) {
+    const target = affs.find((a) => a.id === id);
+    if (!target || target.tag === newTag) return;
+    setAffs((prev) => prev.map((a) => (a.id === id ? { ...a, tag: newTag } : a)));
+    setLogs((prev) => {
+      const remapped = prev.map((l) => {
+        if (l.affirmationId !== id) return l;
+        const kind = l.kind ?? "affirm";
+        return { ...l, tag: newTag, id: dailyLogId(l.date, newTag, id, kind) };
+      });
+      // Merge collisions (same id after remap).
+      const byId = new Map<string, FocusLog>();
+      for (const l of remapped) {
+        const cur = byId.get(l.id);
+        if (!cur) byId.set(l.id, l);
+        else
+          byId.set(l.id, {
+            ...cur,
+            count: cur.count + l.count,
+            durationSec: cur.durationSec + l.durationSec,
+            timestamp: Math.max(cur.timestamp, l.timestamp),
+          });
+      }
+      return Array.from(byId.values());
+    });
+  }
+
   return (
     <AppShell title="目标列表">
       {celebrate && (
