@@ -13,7 +13,7 @@ import {
   ACTIVE_SESSION_KEY_AFFIRM,
   ACTIVE_SESSION_KEY_BREATH,
 } from "@/lib/storage";
-import { setWhiteNoise, stopWhiteNoise, getCurrentWhiteNoise, unlockWhiteNoise } from "@/lib/white-noise";
+import { setWhiteNoise, resumeWhiteNoise, unlockWhiteNoise } from "@/lib/white-noise";
 import { Play, Pause, RotateCcw, Plus, Sparkles, Wind, Volume2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
@@ -28,21 +28,25 @@ function PostureButton() {
   const { settings } = useApp();
   if (!settings.sound && settings.whiteNoise === "off") return null;
   return (
-    <button
-      type="button"
-      onClick={() => {
-        unlockAudio();
-        unlockWhiteNoise();
-        if (settings.whiteNoise !== "off") {
-          setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
-        }
-      }}
-      aria-label="恢复音频播放"
-      title="恢复音频播放"
-      className="glass glass-hover rounded-full size-9 flex items-center justify-center"
-    >
-      <Volume2 className="size-4" />
-    </button>
+    <div className="flex flex-col items-center gap-1">
+      <button
+        type="button"
+        onClick={() => {
+          unlockAudio();
+          unlockWhiteNoise();
+          if (settings.whiteNoise !== "off") {
+            setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
+            resumeWhiteNoise();
+          }
+        }}
+        aria-label="恢复音效"
+        title="恢复音效"
+        className="glass glass-hover rounded-full size-9 flex items-center justify-center"
+      >
+        <Volume2 className="size-4" />
+      </button>
+      <p className="text-[11px] opacity-50">恢复音效</p>
+    </div>
   );
 }
 
@@ -303,15 +307,8 @@ function AffirmFocus() {
     return () => window.removeEventListener("beforeunload", onBefore);
   }, [running]);
 
-  // White noise reflects latest settings, sync with running state
-  useEffect(() => {
-    if (settings.whiteNoise !== "off") {
-      // play whenever user picked a noise (Settings preview or focus)
-      setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
-    } else {
-      if (getCurrentWhiteNoise() !== "off") stopWhiteNoise();
-    }
-  }, [settings.whiteNoise, settings.whiteNoiseVolume]);
+  // White noise is now managed globally by AppProvider — do not touch it here.
+
 
   // Keyboard shortcut
   useEffect(() => {
@@ -354,12 +351,10 @@ function AffirmFocus() {
   }
 
   function start() {
-    // Unlock audio pipelines on the user gesture (iOS Safari requirement)
+    // Only unlock the counter-tick AudioContext on the user gesture.
+    // White noise is fully decoupled from timer lifecycle.
     unlockAudio();
-    unlockWhiteNoise();
-    if (settings.whiteNoise !== "off") {
-      setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
-    }
+
     if (!isStopwatch && elapsedBeforeRef.current >= duration) {
       elapsedBeforeRef.current = 0;
     }
@@ -461,30 +456,9 @@ function AffirmFocus() {
 
 
       {/* Big counter */}
-      <GlassCard className="text-center py-8">
-        <p className="text-xs tracking-widest opacity-50 mb-1">
-          {settings.counterMode === "total" ? "累计计数" : "今日计数"}
-        </p>
-        <p className="text-xs opacity-50 mb-4 truncate">
-          {currentAff ? `"${currentAff.text}"` : `#${selectedTag}`}
-        </p>
-        <button
-          onClick={() => addCount(1, true)}
-          className="glass-strong selected-strong glass-hover rounded-full size-60 md:size-72 mx-auto flex flex-col items-center justify-center active:scale-95 transition-transform"
-          style={{ willChange: "transform" }}
-        >
-          <span className="font-num text-7xl md:text-8xl tabular-nums">{todayCount}</span>
-          <span className="flex items-center gap-1 text-sm opacity-70 mt-2">
-            <Plus className="size-4" /> 点击 +1
-          </span>
-        </button>
-        <div className="mt-3 flex justify-center">
-          <PostureButton />
-        </div>
-
-
-        <div className="mt-6 flex items-center justify-center gap-2 flex-wrap">
-          {settings.resetCounterEnabled && (
+      <GlassCard className="text-center py-8 relative">
+        {settings.resetCounterEnabled && (
+          <div className="absolute top-3 left-3">
             <ResetCounterButton
               onResetToday={() => {
                 const td = todayKey();
@@ -515,8 +489,27 @@ function AffirmFocus() {
                 setCount(0);
               }}
             />
-          )}
-          {settings.autoCountEnabled && (
+          </div>
+        )}
+        <p className="text-xs tracking-widest opacity-50 mb-1">
+          {settings.counterMode === "total" ? "累计计数" : "今日计数"}
+        </p>
+        <p className="text-xs opacity-50 mb-4 truncate">
+          {currentAff ? `"${currentAff.text}"` : `#${selectedTag}`}
+        </p>
+        <button
+          onClick={() => addCount(1, true)}
+          className="glass-strong selected-strong glass-hover rounded-full size-60 md:size-72 mx-auto flex flex-col items-center justify-center active:scale-95 transition-transform"
+          style={{ willChange: "transform" }}
+        >
+          <span className="font-num text-7xl md:text-8xl tabular-nums">{todayCount}</span>
+          <span className="flex items-center gap-1 text-sm opacity-70 mt-2">
+            <Plus className="size-4" /> 点击 +1
+          </span>
+        </button>
+
+        {settings.autoCountEnabled && (
+          <div className="mt-6 flex items-start justify-center gap-3 flex-wrap">
             <div className="flex flex-col items-center gap-1">
               <button
                 onClick={() => {
@@ -531,9 +524,16 @@ function AffirmFocus() {
                 间隔 {settings.autoCountInterval} 秒（可在设置中调整）
               </p>
             </div>
-          )}
-        </div>
+            <PostureButton />
+          </div>
+        )}
+        {!settings.autoCountEnabled && (
+          <div className="mt-6 flex justify-center">
+            <PostureButton />
+          </div>
+        )}
       </GlassCard>
+
 
       {/* Theme / affirmation selector */}
       <GlassCard>
@@ -790,20 +790,12 @@ function BreathFocus() {
     return () => window.removeEventListener("beforeunload", onBefore);
   }, [running]);
 
-  useEffect(() => {
-    if (settings.whiteNoise !== "off") {
-      setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
-    } else {
-      if (getCurrentWhiteNoise() !== "off") stopWhiteNoise();
-    }
-  }, [settings.whiteNoise, settings.whiteNoiseVolume]);
+  // White noise is now managed globally by AppProvider — do not touch it here.
 
   function start() {
+    // Only unlock the counter-tick AudioContext on the user gesture.
+    // White noise is fully decoupled from timer lifecycle.
     unlockAudio();
-    unlockWhiteNoise();
-    if (settings.whiteNoise !== "off") {
-      setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
-    }
     if (!isStopwatch && elapsedBeforeRef.current >= duration) {
       elapsedBeforeRef.current = 0;
     }

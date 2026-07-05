@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { AppShell, GlassCard } from "@/components/AppShell";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { UsageGuideContent } from "@/components/UsageGuide";
 import { useApp } from "@/lib/app-context";
 import { storage } from "@/lib/storage";
-import { setWhiteNoise, stopWhiteNoise } from "@/lib/white-noise";
+
 import {
   Download,
   Upload,
@@ -41,15 +41,8 @@ function SettingsPage() {
   const [showChangelog, setShowChangelog] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  // White noise is driven globally by AppProvider — no per-page effect needed.
 
-  // Live preview of white noise on settings page
-  useEffect(() => {
-    if (settings.whiteNoise === "off") {
-      stopWhiteNoise();
-    } else {
-      setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
-    }
-  }, [settings.whiteNoise, settings.whiteNoiseVolume]);
 
   function exportData() {
     const data = storage.exportAll();
