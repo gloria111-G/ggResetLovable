@@ -446,6 +446,35 @@ function SettingsPage() {
         </div>
       )}
 
+      {showChangelog && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4"
+          onClick={() => setShowChangelog(false)}
+        >
+          <div
+            className="glass-strong rounded-3xl p-6 w-full max-w-md relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowChangelog(false)}
+              className="absolute top-3 right-3 glass rounded-full size-9 flex items-center justify-center"
+              aria-label="关闭"
+            >
+              <X className="size-4" />
+            </button>
+            <h3 className="font-display text-xl mb-4">更新日志</h3>
+            <div className="space-y-4 text-sm leading-relaxed">
+              <div>
+                <p className="font-medium mb-1">2026 / 7</p>
+                <p className="opacity-85">
+                  更新肯定语数值手动调整、重置计数器功能，调整呼吸球颜色对比，调整设置顺序，更新后台播放白噪音计数器音效功能。其他功能仍在开发中敬请期待！
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ConfirmDialog
         open={confirmClear}
         title="重置全部本地数据？"
