@@ -307,15 +307,8 @@ function AffirmFocus() {
     return () => window.removeEventListener("beforeunload", onBefore);
   }, [running]);
 
-  // White noise reflects latest settings, sync with running state
-  useEffect(() => {
-    if (settings.whiteNoise !== "off") {
-      // play whenever user picked a noise (Settings preview or focus)
-      setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
-    } else {
-      if (getCurrentWhiteNoise() !== "off") stopWhiteNoise();
-    }
-  }, [settings.whiteNoise, settings.whiteNoiseVolume]);
+  // White noise is now managed globally by AppProvider — do not touch it here.
+
 
   // Keyboard shortcut
   useEffect(() => {
