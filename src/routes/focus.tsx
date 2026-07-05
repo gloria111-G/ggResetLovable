@@ -456,7 +456,7 @@ function AffirmFocus() {
           </span>
         </button>
 
-        <div className="mt-6 flex items-center justify-center gap-2 flex-wrap">
+        <div className="mt-6 flex items-start justify-center gap-2 flex-wrap">
           {settings.resetCounterEnabled && (
             <ResetCounterButton
               onResetToday={() => {
