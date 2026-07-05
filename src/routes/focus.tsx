@@ -929,6 +929,8 @@ function BreathFocus() {
         </p>
       </GlassCard>
 
+      <WhiteNoiseSelector />
+
       {/* Neural regulation intro + Tips */}
       <GlassCard>
         <h2 className="font-display text-xl mb-3">神经系统调节</h2>
