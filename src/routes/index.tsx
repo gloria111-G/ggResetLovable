@@ -10,8 +10,8 @@ export const Route = createFileRoute("/")({
 });
 
 const tiles = [
-  { to: "/focus", label: "进入专注", sub: "Affirm · Breathe", Icon: Sparkles },
-  { to: "/manifest", label: "显化列表", sub: "List · Affirmations", Icon: ListChecks },
+  { to: "/focus", label: "进入专注", sub: "Focus · Breathe", Icon: Sparkles },
+  { to: "/manifest", label: "目标列表", sub: "List · Affirmations", Icon: ListChecks },
   { to: "/data", label: "数据中心", sub: "Insights", Icon: BarChart3 },
   { to: "/settings", label: "设置", sub: "Preferences", Icon: SettingsIcon },
 ] as const;
@@ -23,7 +23,7 @@ function Home() {
     <div className="min-h-screen flex flex-col">
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-16">
         <div className="text-center mb-12">
-          <p className="text-xs tracking-[0.4em] opacity-60 mb-3">REST · RESET · RECEIVE</p>
+          <p className="text-xs tracking-[0.4em] opacity-60 mb-3">FOCUS · COUNTER · TIMER</p>
           <h1 className="font-display text-6xl md:text-7xl tracking-tight">GG RESET</h1>
           {settings.homeGuideShortcut && (
             <button
