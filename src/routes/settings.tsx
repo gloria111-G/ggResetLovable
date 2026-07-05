@@ -313,24 +313,23 @@ function SettingsPage() {
           {/* ---- 白噪音 ---- */}
           <p className="text-xs opacity-60 mt-8 mb-2 tracking-widest">白噪音</p>
 
-          <div className="flex flex-wrap gap-2">
-            {(["off", "waves", "fire", "rain"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => setSettings((s) => ({ ...s, whiteNoise: m }))}
-                className={`rounded-full px-3 py-1.5 text-xs ${selCls(settings.whiteNoise === m)}`}
-              >
-                {m === "off"
-                  ? "关闭"
-                  : m === "waves"
-                    ? "🌊 海浪"
-                    : m === "fire"
-                      ? "🔥 篝火"
-                      : "🌧 下雨"}
-              </button>
-            ))}
-          </div>
-          {settings.whiteNoise !== "off" && (
+          <Toggle
+            label="开启白噪音功能"
+            value={settings.whiteNoiseEnabled}
+            onChange={(v) =>
+              setSettings((s) => ({
+                ...s,
+                whiteNoiseEnabled: v,
+                // Turning the feature off also clears the current track
+                whiteNoise: v ? s.whiteNoise : "off",
+              }))
+            }
+          />
+          <p className="text-[11px] opacity-55 mt-1">
+            开启后可在「肯定语」和「呼吸调整」页面选择海浪 / 篝火 / 雨声。默认关闭。
+          </p>
+
+          {settings.whiteNoiseEnabled && (
             <div className="mt-3">
               <p className="text-xs opacity-70 mb-1">
                 音量 {Math.round(settings.whiteNoiseVolume * 100)}%
@@ -460,7 +459,7 @@ function SettingsPage() {
               <div>
                 <p className="font-medium mb-1">2026 / 7</p>
                 <p className="opacity-85">
-                  更新肯定语数值手动调整、重置计数器功能，调整呼吸球颜色对比，修复计数器音效和白噪音播放的bug。其他功能仍在开发中敬请期待！
+                  更新肯定语数值手动调整、改变标签，重置计数器计数功能，增加呼吸球颜色对比，修复计数器音效和白噪音播放的bug。其他功能仍在开发中敬请期待！
                 </p>
               </div>
             </div>
