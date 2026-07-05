@@ -111,7 +111,7 @@ function TotalCard({
         </div>
         <div>
           <p className="font-num text-5xl tabular-nums">{breathMin}</p>
-          <p className="text-xs opacity-60 mt-1">分钟 · 神经系统调节</p>
+          <p className="text-xs opacity-60 mt-1">分钟 · 呼吸调整</p>
         </div>
       </div>
       <div>
