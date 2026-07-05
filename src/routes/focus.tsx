@@ -573,11 +573,15 @@ function ResetCounterButton({
     <div className="relative flex flex-col items-center gap-1">
       <button
         onClick={() => setMenu((v) => !v)}
-        className="glass rounded-full px-3 py-2 text-xs flex items-center gap-1"
+        className="glass rounded-full px-4 py-2 text-xs flex items-center gap-1"
         aria-label="重置计数"
       >
-        <RotateCcw className="size-3.5" /> 重置
+        <RotateCcw className="size-3.5" /> 重置计数
       </button>
+      <p className="text-[11px] opacity-0 select-none" aria-hidden>
+        &nbsp;
+      </p>
+
       {menu && (
         <div
           className="fixed inset-0 z-[55]"
