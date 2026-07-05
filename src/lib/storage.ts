@@ -46,6 +46,7 @@ export type Settings = {
   keyboardCounter: boolean;
   focusDuration: number;
   breathFocusDuration: number;
+  whiteNoiseEnabled: boolean;
   whiteNoise: WhiteNoise;
   whiteNoiseVolume: number; // 0-1
   /** Legacy single mode; kept for backward compat */
