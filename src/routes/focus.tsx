@@ -882,7 +882,10 @@ function BreathFocus() {
       {/* Breath ball */}
       <GlassCard className="py-10">
         <BreathBall running={running} />
-        <p className="text-center text-xs opacity-70 mt-6">
+        <div className="mt-4 flex justify-center">
+          <PostureButton />
+        </div>
+        <p className="text-center text-xs opacity-70 mt-4">
           当前呼吸模式：<span className="font-medium">{breathLabel(settings)}</span>
           <span className="opacity-50">（可在设置中调整）</span>
         </p>
