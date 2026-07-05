@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell, GlassCard } from "@/components/AppShell";
 import { WheelDuration } from "@/components/WheelDuration";
-import { useApp, playFeedback, unlockAudio } from "@/lib/app-context";
+import { useApp, playFeedback, unlockAudio, startAutoTickSound, stopAutoTickSound } from "@/lib/app-context";
 import {
   useLocal,
   upsertDailyLog,
@@ -180,6 +180,20 @@ function AffirmFocus() {
   const remaining = Math.max(0, Math.ceil(duration - elapsedNow));
   const dispSec = isStopwatch ? Math.floor(elapsedNow) : remaining;
 
+  const shouldBackgroundTick = useCallback(() => {
+    return running && settings.autoCountEnabled && autoOn && settings.sound;
+  }, [autoOn, running, settings.autoCountEnabled, settings.sound]);
+
+  const syncBackgroundTickSound = useCallback(() => {
+    if (typeof document === "undefined") return;
+    if (document.hidden && shouldBackgroundTick()) {
+      const remain = isStopwatch ? undefined : Math.max(0.1, duration - computeElapsed());
+      startAutoTickSound(settings.autoCountInterval, remain);
+    } else {
+      stopAutoTickSound();
+    }
+  }, [computeElapsed, duration, isStopwatch, settings.autoCountInterval, shouldBackgroundTick]);
+
   // Sync duration → settings
   useEffect(() => {
     setSettings((s) => ({ ...s, focusDuration: duration }));
@@ -254,6 +268,7 @@ function AffirmFocus() {
   useEffect(() => {
     function onVis() {
       flushAutoCount();
+      syncBackgroundTickSound();
       forceTick((x) => x + 1);
       if (!document.hidden && running && !isStopwatch) {
         if (computeElapsed() >= duration) finish(true);
@@ -266,7 +281,12 @@ function AffirmFocus() {
       window.removeEventListener("focus", onVis);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [running, duration, isStopwatch, flushAutoCount]);
+  }, [running, duration, isStopwatch, flushAutoCount, syncBackgroundTickSound]);
+
+  useEffect(() => {
+    syncBackgroundTickSound();
+    return () => stopAutoTickSound();
+  }, [syncBackgroundTickSound]);
 
   // beforeunload guard
   useEffect(() => {
@@ -332,7 +352,7 @@ function AffirmFocus() {
 
   function start() {
     // Unlock audio pipelines on the user gesture (iOS Safari requirement)
-    unlockAudio();
+    unlockAudio(settings.autoCountInterval);
     unlockWhiteNoise();
     if (settings.whiteNoise !== "off") {
       setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
@@ -349,11 +369,13 @@ function AffirmFocus() {
   }
   function pause() {
     flushAutoCount();
+    stopAutoTickSound();
     elapsedBeforeRef.current += (Date.now() - startedAtRef.current) / 1000;
     setRunning(false);
   }
   function finish(completed: boolean) {
     flushAutoCount();
+    stopAutoTickSound();
     const finalElapsed = isStopwatch
       ? computeElapsed()
       : Math.min(duration, computeElapsed());
@@ -494,7 +516,10 @@ function AffirmFocus() {
               <button
                 onClick={() => {
                   if (!autoOn) lastAutoAtRef.current = Date.now();
-                  setAutoOn((v) => !v);
+                  setAutoOn((v) => {
+                    if (v) stopAutoTickSound();
+                    return !v;
+                  });
                 }}
                 className={`rounded-full px-4 py-2 text-xs ${selCls(autoOn)}`}
               >

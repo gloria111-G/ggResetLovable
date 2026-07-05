@@ -31,6 +31,7 @@ let desired: Desired = { mode: "off", volume: 0.5 };
 let unlocked = false;
 let listenersBound = false;
 let recoveryScheduled = false;
+let recoveryRetry: ReturnType<typeof setTimeout> | null = null;
 
 function ensureAudio(): HTMLAudioElement | null {
   if (typeof window === "undefined") return null;
@@ -55,6 +56,18 @@ function ensureAudio(): HTMLAudioElement | null {
       // loop=true means this shouldn't fire, but be defensive.
       if (desired.mode !== "off") scheduleRecover();
     });
+    el.addEventListener("stalled", () => {
+      if (desired.mode !== "off") scheduleRecover();
+    });
+    el.addEventListener("waiting", () => {
+      if (desired.mode !== "off") scheduleRecover();
+    });
+    el.addEventListener("error", () => {
+      if (desired.mode !== "off") {
+        currentMode = "off";
+        scheduleRecover();
+      }
+    });
     audio = el;
   }
   bindGlobalListeners();
@@ -72,6 +85,15 @@ function scheduleRecover() {
   }, 120);
 }
 
+function scheduleRetry() {
+  if (recoveryRetry || desired.mode === "off") return;
+  recoveryRetry = setTimeout(() => {
+    recoveryRetry = null;
+    if (desired.mode === "off") return;
+    tryPlayDesired();
+  }, 1600);
+}
+
 function bindGlobalListeners() {
   if (listenersBound || typeof window === "undefined") return;
   listenersBound = true;
@@ -83,6 +105,7 @@ function bindGlobalListeners() {
   });
   window.addEventListener("focus", onWake);
   window.addEventListener("pageshow", onWake);
+  window.addEventListener("online", onWake);
 }
 
 function updateMediaSession(mode: WhiteNoise) {
@@ -101,9 +124,9 @@ function updateMediaSession(mode: WhiteNoise) {
     navigator.mediaSession.playbackState = "playing";
     navigator.mediaSession.setActionHandler?.("play", () => tryPlayDesired());
     navigator.mediaSession.setActionHandler?.("pause", () => {
-      // Respect user pausing from lockscreen: turn desired off.
-      desired = { ...desired, mode: "off" };
-      stopWhiteNoise();
+      // System/media interruptions often arrive as a pause action on mobile.
+      // Keep the user's setting intact and recover instead of turning noise off.
+      scheduleRecover();
     });
   } catch {}
 }
@@ -127,9 +150,14 @@ function tryPlayDesired() {
     const p = el.play();
     if (p && typeof p.catch === "function") {
       p.catch(() => {
-        // Autoplay blocked — will retry on next user gesture / wake event.
+        // Media interruption/autoplay guard — keep trying lightly while the
+        // desired state is still on, and wake listeners will also retry.
+        scheduleRetry();
       });
     }
+  } else if (!el.paused && recoveryRetry) {
+    clearTimeout(recoveryRetry);
+    recoveryRetry = null;
   }
   updateMediaSession(currentMode);
 }
@@ -190,6 +218,10 @@ export function setWhiteNoise(mode: WhiteNoise, volume: number) {
 
 export function stopWhiteNoise() {
   desired = { ...desired, mode: "off" };
+  if (recoveryRetry) {
+    clearTimeout(recoveryRetry);
+    recoveryRetry = null;
+  }
   if (audio) {
     try {
       audio.pause();
