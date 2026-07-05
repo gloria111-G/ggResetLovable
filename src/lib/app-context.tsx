@@ -88,6 +88,18 @@ export function unlockAudio() {
     ctx.resume().catch(() => {});
   }
   if (!tickBuffer) tickBuffer = buildTickBuffer(ctx);
+  // Auto-resume when returning from background so counter ticks keep firing
+  // (independent from HTML5 white-noise media channel).
+  if (typeof document !== "undefined" && !(window as unknown as { __ggTickVis?: boolean }).__ggTickVis) {
+    (window as unknown as { __ggTickVis: boolean }).__ggTickVis = true;
+    const onVis = () => {
+      if (!document.hidden && audioCtx && audioCtx.state === "suspended") {
+        audioCtx.resume().catch(() => {});
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", onVis);
+  }
 }
 
 export function playFeedback(settings: Settings) {
