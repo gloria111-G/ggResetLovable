@@ -84,7 +84,7 @@ function scheduleRetry() {
     if (desired.mode === "off") return;
     tryPlayDesired();
     // If still paused after attempt, queue the next backoff
-    if (audio && audio.paused && desired.mode !== "off") scheduleRetry();
+    if (audio && audio.paused && (desired.mode as WhiteNoise) !== "off") scheduleRetry();
   }, retryDelay);
 }
 
