@@ -390,14 +390,14 @@ function AffirmFocus() {
         prev.map((a) => (a.id === selectedAff ? { ...a, count: a.count + n } : a)),
       );
     }
-    if (settings.sound) playFeedback(settings);
+    audioManager.playTick();
     void feedback;
   }
 
   function start() {
     // Only unlock the counter-tick AudioContext on the user gesture.
     // White noise is fully decoupled from timer lifecycle.
-    unlockAudio();
+    audioManager.unlock();
 
     if (!isStopwatch && elapsedBeforeRef.current >= duration) {
       elapsedBeforeRef.current = 0;
@@ -434,7 +434,7 @@ function AffirmFocus() {
     }
     // Always celebrate when user explicitly ends or naturally completes
     setCelebrated(true);
-    playFeedback({ ...settings, sound: true });
+    audioManager.playTick(true);
     setTimeout(() => setCelebrated(false), 3600);
     elapsedBeforeRef.current = 0;
     setCount(0);
@@ -839,7 +839,7 @@ function BreathFocus() {
   function start() {
     // Only unlock the counter-tick AudioContext on the user gesture.
     // White noise is fully decoupled from timer lifecycle.
-    unlockAudio();
+    audioManager.unlock();
     if (!isStopwatch && elapsedBeforeRef.current >= duration) {
       elapsedBeforeRef.current = 0;
     }
@@ -867,7 +867,7 @@ function BreathFocus() {
       );
     }
     setCelebrated(true);
-    playFeedback({ ...settings, sound: true });
+    audioManager.playTick(true);
     setTimeout(() => setCelebrated(false), 3600);
     elapsedBeforeRef.current = 0;
     saveSession(ACTIVE_SESSION_KEY_BREATH, null);
