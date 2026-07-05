@@ -292,7 +292,7 @@ function AffirmFocus() {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
       e.preventDefault();
-      addCount(1, true);
+      addCount(1);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -440,7 +440,7 @@ function AffirmFocus() {
           {currentAff ? `"${currentAff.text}"` : `#${selectedTag}`}
         </p>
         <button
-          onClick={() => addCount(1, true)}
+          onClick={() => addCount(1)}
           className="glass-strong selected-strong glass-hover rounded-full size-60 md:size-72 mx-auto flex flex-col items-center justify-center active:scale-95 transition-transform"
           style={{ willChange: "transform" }}
         >
