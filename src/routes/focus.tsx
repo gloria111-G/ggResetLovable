@@ -26,19 +26,12 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
  */
 function PostureButton() {
   const { settings } = useApp();
-  if (!settings.sound && settings.whiteNoise === "off") return null;
+  if (!settings.sound && !settings.whiteNoiseEnabled) return null;
   return (
     <div className="flex flex-col items-center gap-1">
       <button
         type="button"
-        onClick={() => {
-          unlockAudio();
-          unlockWhiteNoise();
-          if (settings.whiteNoise !== "off") {
-            setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
-            resumeWhiteNoise();
-          }
-        }}
+        onClick={() => audioManager.posture()}
         aria-label="恢复音效"
         title="恢复音效"
         className="glass glass-hover rounded-full size-9 flex items-center justify-center"
@@ -47,6 +40,57 @@ function PostureButton() {
       </button>
       <p className="text-[11px] opacity-50">恢复音效</p>
     </div>
+  );
+}
+
+/** Shared white-noise selector shown on affirm + breath focus pages.
+ *  Only renders when the user has enabled the white-noise feature in settings.
+ *  Both pages share the same `settings.whiteNoise` track state. */
+function WhiteNoiseSelector() {
+  const { settings, setSettings } = useApp();
+  if (!settings.whiteNoiseEnabled) return null;
+  return (
+    <GlassCard>
+      <p className="text-xs tracking-widest opacity-50 text-center mb-3">白噪音</p>
+      <div className="flex flex-wrap justify-center gap-2">
+        {(["off", "waves", "fire", "rain"] as const).map((m) => (
+          <button
+            key={m}
+            onClick={() => setSettings((s) => ({ ...s, whiteNoise: m }))}
+            className={`rounded-full px-3 py-1.5 text-xs ${selCls(settings.whiteNoise === m)}`}
+          >
+            {m === "off"
+              ? "关闭"
+              : m === "waves"
+                ? "🌊 海浪"
+                : m === "fire"
+                  ? "🔥 篝火"
+                  : "🌧 下雨"}
+          </button>
+        ))}
+      </div>
+      {settings.whiteNoise !== "off" && (
+        <div className="mt-3">
+          <p className="text-xs opacity-70 mb-1 text-center">
+            音量 {Math.round(settings.whiteNoiseVolume * 100)}%
+          </p>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={settings.whiteNoiseVolume}
+            onChange={(e) =>
+              setSettings((s) => ({
+                ...s,
+                whiteNoiseVolume: Number(e.target.value),
+              }))
+            }
+            className="w-full"
+          />
+        </div>
+      )}
+    </GlassCard>
   );
 }
 
