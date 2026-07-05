@@ -626,6 +626,8 @@ function AffirmFocus() {
         </div>
       </GlassCard>
 
+      <WhiteNoiseSelector />
+
       {celebrated && <Celebration />}
     </div>
   );
