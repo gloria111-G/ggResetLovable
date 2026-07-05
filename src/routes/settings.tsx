@@ -38,6 +38,7 @@ function SettingsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const bgRef = useRef<HTMLInputElement>(null);
   const [showDonate, setShowDonate] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
 
