@@ -491,7 +491,7 @@ function AffirmFocus() {
           ) : (
             <>
               <p className="text-[11px] opacity-60 text-center">
-                可选具体肯定语，未选时聚焦整个主题
+                可选择具体肯定语，未选择时默认专注整个主题
               </p>
               {filteredAffs.map((a) => (
                 <button
@@ -551,7 +551,7 @@ const TIPS = [
 ];
 
 const NEURAL_INTRO =
-  "神经系统调节是帮助身体从紧张、焦虑或压力状态，回到平静、安全和稳定状态的过程。当你的神经系统更稳定时，你会更容易专注、坚持 A 肯定语，并减少被外界或旧想法影响，让日常生活和显化都变得更轻松、更自然。";
+  "神经系统调节是帮助身体从紧张、焦虑或压力状态，回到平静、安全和稳定状态的过程。当你更稳定时，你会更容易专注保持积极思考，并减少被外界或旧想法影响，让日常生活和保持积极想法变得更轻松、更自然。";
 
 function BreathFocus() {
   const { settings, setSettings } = useApp();
@@ -686,7 +686,7 @@ function BreathFocus() {
     if (secs > 0) {
       setLogs((prev) =>
         upsertDailyLog(prev, {
-          tag: "神经系统调节",
+          tag: "呼吸调整",
           addDuration: secs,
           kind: "breath",
         }),
