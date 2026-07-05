@@ -288,6 +288,20 @@ function AffirmFocus() {
     }
   }, [settings.whiteNoise, settings.whiteNoiseVolume]);
 
+  // Auto-count tick pre-scheduler — schedules future ticks on the Web Audio
+  // clock so sounds fire on-time even when the JS thread is throttled.
+  useEffect(() => {
+    if (!running || !autoOn || !settings.autoCountEnabled || !settings.sound) {
+      stopAutoTickSchedule();
+      return;
+    }
+    const intervalSec = Math.max(0.1, settings.autoCountInterval);
+    // First scheduled tick fires one interval after the last accounted tick.
+    const firstAt = lastAutoAtRef.current + intervalSec * 1000;
+    startAutoTickSchedule(intervalSec, firstAt);
+    return () => stopAutoTickSchedule();
+  }, [running, autoOn, settings.autoCountEnabled, settings.sound, settings.autoCountInterval]);
+
   // Keyboard shortcut
   useEffect(() => {
     if (!settings.keyboardCounter) return;
