@@ -14,8 +14,37 @@ import {
   ACTIVE_SESSION_KEY_BREATH,
 } from "@/lib/storage";
 import { setWhiteNoise, stopWhiteNoise, getCurrentWhiteNoise, unlockWhiteNoise } from "@/lib/white-noise";
-import { Play, Pause, RotateCcw, Plus, Sparkles, Wind } from "lucide-react";
+import { Play, Pause, RotateCcw, Plus, Sparkles, Wind, Volume2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+
+/**
+ * Posture button — small tap target shown near the counter / breath ball
+ * whenever the user has enabled counter sound or white noise. Tapping it
+ * fires a fresh user gesture that resumes the AudioContext and re-primes
+ * the white-noise <audio> element, recovering from iOS media interruptions
+ * or background suspensions.
+ */
+function PostureButton() {
+  const { settings } = useApp();
+  if (!settings.sound && settings.whiteNoise === "off") return null;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        unlockAudio();
+        unlockWhiteNoise();
+        if (settings.whiteNoise !== "off") {
+          setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
+        }
+      }}
+      aria-label="恢复音频播放"
+      title="恢复音频播放"
+      className="glass glass-hover rounded-full size-9 flex items-center justify-center"
+    >
+      <Volume2 className="size-4" />
+    </button>
+  );
+}
 
 export const Route = createFileRoute("/focus")({
   head: () => ({ meta: [{ title: "进入专注 · GG RESET" }] }),
