@@ -11,6 +11,7 @@ import {
   uid,
   todayKey,
   upsertDailyLog,
+  dailyLogId,
 } from "@/lib/storage";
 import { Check, Plus, Trash2, Sparkles, GripVertical, X, Settings as SettingsIcon } from "lucide-react";
 import {
