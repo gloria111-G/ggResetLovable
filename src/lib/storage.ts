@@ -127,6 +127,7 @@ export const DEFAULT_SETTINGS: Settings = {
   keyboardCounter: false,
   focusDuration: 300,
   breathFocusDuration: 300,
+  whiteNoiseEnabled: false,
   whiteNoise: "off",
   whiteNoiseVolume: 0.5,
   timerMode: "countdown",
