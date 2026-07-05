@@ -41,15 +41,8 @@ function SettingsPage() {
   const [showChangelog, setShowChangelog] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  // White noise is driven globally by AppProvider — no per-page effect needed.
 
-  // Live preview of white noise on settings page
-  useEffect(() => {
-    if (settings.whiteNoise === "off") {
-      stopWhiteNoise();
-    } else {
-      setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
-    }
-  }, [settings.whiteNoise, settings.whiteNoiseVolume]);
 
   function exportData() {
     const data = storage.exportAll();
