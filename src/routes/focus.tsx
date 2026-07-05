@@ -308,7 +308,7 @@ function AffirmFocus() {
     [affirmations, selectedAff],
   );
 
-  function addCount(n: number, feedback = false) {
+  function addCount(n: number, opts?: { silent?: boolean }) {
     if (n <= 0) return;
     const affId = selectedAff || undefined;
     setCount((c) => c + n);
@@ -320,9 +320,9 @@ function AffirmFocus() {
         prev.map((a) => (a.id === selectedAff ? { ...a, count: a.count + n } : a)),
       );
     }
-    if (settings.sound) playFeedback(settings);
-    void feedback;
+    if (!opts?.silent && settings.sound) playFeedback(settings);
   }
+
 
   function start() {
     // Unlock audio pipelines on the user gesture (iOS Safari requirement)
