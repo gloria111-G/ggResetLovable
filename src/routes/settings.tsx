@@ -387,6 +387,12 @@ function SettingsPage() {
             />
           </div>
           <p className="text-xs opacity-60 mt-3">所有数据存储在你的浏览器本地，从不上传。</p>
+          <button
+            onClick={() => setShowChangelog(true)}
+            className="mt-4 glass glass-hover rounded-2xl px-4 py-3 text-sm inline-flex items-center gap-2"
+          >
+            <BookOpen className="size-4" /> 更新日志
+          </button>
         </GlassCard>
 
         {/* Donate */}
