@@ -216,8 +216,14 @@ function AffirmFocus() {
     const n = Math.floor(elapsedSinceLast / intervalMs);
     if (n > 0) {
       lastAutoAtRef.current += n * intervalMs;
-      addCount(n);
+      // Bulk catch-up after backgrounding: update counts silently so we don't
+      // fire N tick sounds at once ("bunched together"). Live in-foreground
+      // ticks come from a single-step call below.
+      const wasHidden = typeof document !== "undefined" && document.hidden;
+      if (n === 1 && !wasHidden) addCount(1);
+      else addCount(n, { silent: true });
     }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running, autoOn, settings.autoCountEnabled, settings.autoCountInterval, duration, isStopwatch]);
 
