@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { AppShell, GlassCard } from "@/components/AppShell";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { UsageGuideContent } from "@/components/UsageGuide";
