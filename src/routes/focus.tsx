@@ -787,20 +787,12 @@ function BreathFocus() {
     return () => window.removeEventListener("beforeunload", onBefore);
   }, [running]);
 
-  useEffect(() => {
-    if (settings.whiteNoise !== "off") {
-      setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
-    } else {
-      if (getCurrentWhiteNoise() !== "off") stopWhiteNoise();
-    }
-  }, [settings.whiteNoise, settings.whiteNoiseVolume]);
+  // White noise is now managed globally by AppProvider — do not touch it here.
 
   function start() {
+    // Only unlock the counter-tick AudioContext on the user gesture.
+    // White noise is fully decoupled from timer lifecycle.
     unlockAudio();
-    unlockWhiteNoise();
-    if (settings.whiteNoise !== "off") {
-      setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
-    }
     if (!isStopwatch && elapsedBeforeRef.current >= duration) {
       elapsedBeforeRef.current = 0;
     }
