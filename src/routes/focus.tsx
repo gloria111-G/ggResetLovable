@@ -13,7 +13,7 @@ import {
   ACTIVE_SESSION_KEY_AFFIRM,
   ACTIVE_SESSION_KEY_BREATH,
 } from "@/lib/storage";
-import { setWhiteNoise, stopWhiteNoise, getCurrentWhiteNoise, unlockWhiteNoise } from "@/lib/white-noise";
+import { setWhiteNoise, resumeWhiteNoise, unlockWhiteNoise } from "@/lib/white-noise";
 import { Play, Pause, RotateCcw, Plus, Sparkles, Wind, Volume2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
