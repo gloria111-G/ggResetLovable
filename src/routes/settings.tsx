@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { AppShell, GlassCard } from "@/components/AppShell";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { UsageGuideContent } from "@/components/UsageGuide";
-import { useApp } from "@/lib/app-context";
+import { useApp, unlockAudio } from "@/lib/app-context";
 import { storage } from "@/lib/storage";
 import { setWhiteNoise, stopWhiteNoise } from "@/lib/white-noise";
 import {
@@ -183,7 +183,10 @@ function SettingsPage() {
           <Toggle
             label="计数器音效提示"
             value={settings.sound}
-            onChange={(v) => setSettings((s) => ({ ...s, sound: v }))}
+            onChange={(v) => {
+              if (v) unlockAudio(settings.autoCountInterval);
+              setSettings((s) => ({ ...s, sound: v }));
+            }}
           />
           <Toggle
             label="键盘计数（回车/空格 +1）"
