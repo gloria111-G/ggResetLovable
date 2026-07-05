@@ -216,14 +216,8 @@ function AffirmFocus() {
     const n = Math.floor(elapsedSinceLast / intervalMs);
     if (n > 0) {
       lastAutoAtRef.current += n * intervalMs;
-      // Bulk catch-up after backgrounding: update counts silently so we don't
-      // fire N tick sounds at once ("bunched together"). Live in-foreground
-      // ticks come from a single-step call below.
-      const wasHidden = typeof document !== "undefined" && document.hidden;
-      if (n === 1 && !wasHidden) addCount(1);
-      else addCount(n, { silent: true });
+      addCount(n);
     }
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running, autoOn, settings.autoCountEnabled, settings.autoCountInterval, duration, isStopwatch]);
 
@@ -298,7 +292,7 @@ function AffirmFocus() {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
       e.preventDefault();
-      addCount(1);
+      addCount(1, true);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -314,7 +308,7 @@ function AffirmFocus() {
     [affirmations, selectedAff],
   );
 
-  function addCount(n: number, opts?: { silent?: boolean }) {
+  function addCount(n: number, feedback = false) {
     if (n <= 0) return;
     const affId = selectedAff || undefined;
     setCount((c) => c + n);
@@ -326,9 +320,9 @@ function AffirmFocus() {
         prev.map((a) => (a.id === selectedAff ? { ...a, count: a.count + n } : a)),
       );
     }
-    if (!opts?.silent && settings.sound) playFeedback(settings);
+    if (settings.sound) playFeedback(settings);
+    void feedback;
   }
-
 
   function start() {
     // Unlock audio pipelines on the user gesture (iOS Safari requirement)
@@ -446,7 +440,7 @@ function AffirmFocus() {
           {currentAff ? `"${currentAff.text}"` : `#${selectedTag}`}
         </p>
         <button
-          onClick={() => addCount(1)}
+          onClick={() => addCount(1, true)}
           className="glass-strong selected-strong glass-hover rounded-full size-60 md:size-72 mx-auto flex flex-col items-center justify-center active:scale-95 transition-transform"
           style={{ willChange: "transform" }}
         >
@@ -456,7 +450,7 @@ function AffirmFocus() {
           </span>
         </button>
 
-        <div className="mt-6 flex items-start justify-center gap-2 flex-wrap">
+        <div className="mt-6 flex items-center justify-center gap-2 flex-wrap">
           {settings.resetCounterEnabled && (
             <ResetCounterButton
               onResetToday={() => {
@@ -573,15 +567,11 @@ function ResetCounterButton({
     <div className="relative flex flex-col items-center gap-1">
       <button
         onClick={() => setMenu((v) => !v)}
-        className="glass rounded-full px-4 py-2 text-xs flex items-center gap-1"
+        className="glass rounded-full px-3 py-2 text-xs flex items-center gap-1"
         aria-label="重置计数"
       >
-        <RotateCcw className="size-3.5" /> 重置计数
+        <RotateCcw className="size-3.5" /> 重置
       </button>
-      <p className="text-[11px] opacity-0 select-none" aria-hidden>
-        &nbsp;
-      </p>
-
       {menu && (
         <div
           className="fixed inset-0 z-[55]"
