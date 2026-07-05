@@ -351,12 +351,10 @@ function AffirmFocus() {
   }
 
   function start() {
-    // Unlock audio pipelines on the user gesture (iOS Safari requirement)
+    // Only unlock the counter-tick AudioContext on the user gesture.
+    // White noise is fully decoupled from timer lifecycle.
     unlockAudio();
-    unlockWhiteNoise();
-    if (settings.whiteNoise !== "off") {
-      setWhiteNoise(settings.whiteNoise, settings.whiteNoiseVolume);
-    }
+
     if (!isStopwatch && elapsedBeforeRef.current >= duration) {
       elapsedBeforeRef.current = 0;
     }
