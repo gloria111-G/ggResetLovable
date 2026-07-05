@@ -554,6 +554,76 @@ function AffirmFocus() {
   );
 }
 
+function ResetCounterButton({
+  onResetToday,
+  onResetTotal,
+}: {
+  onResetToday: () => void;
+  onResetTotal: () => void;
+}) {
+  const [menu, setMenu] = useState(false);
+  const [confirm, setConfirm] = useState<null | "today" | "total">(null);
+  return (
+    <div className="relative flex flex-col items-center gap-1">
+      <button
+        onClick={() => setMenu((v) => !v)}
+        className="glass rounded-full px-3 py-2 text-xs flex items-center gap-1"
+        aria-label="重置计数"
+      >
+        <RotateCcw className="size-3.5" /> 重置
+      </button>
+      {menu && (
+        <div
+          className="fixed inset-0 z-[55]"
+          onClick={() => setMenu(false)}
+        >
+          <div
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 glass-strong rounded-2xl p-2 min-w-[180px] flex flex-col gap-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => {
+                setMenu(false);
+                setConfirm("today");
+              }}
+              className="rounded-xl px-4 py-2.5 text-sm hover:bg-white/20 text-left"
+            >
+              清空今日计数
+            </button>
+            <button
+              onClick={() => {
+                setMenu(false);
+                setConfirm("total");
+              }}
+              className="rounded-xl px-4 py-2.5 text-sm hover:bg-white/20 text-left"
+            >
+              清空累计计数
+            </button>
+            <button
+              onClick={() => setMenu(false)}
+              className="rounded-xl px-4 py-2.5 text-sm hover:bg-white/20 text-left opacity-70"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
+      <ConfirmDialog
+        open={!!confirm}
+        title="清空计数无法恢复"
+        description={confirm === "today" ? "将清空今日的计数记录。" : "将清空该项目全部累计计数。"}
+        confirmText="确定"
+        cancelText="取消"
+        onConfirm={() => {
+          if (confirm === "today") onResetToday();
+          if (confirm === "total") onResetTotal();
+        }}
+        onClose={() => setConfirm(null)}
+      />
+    </div>
+  );
+}
+
 /* ============================================================
  * Breath Focus
  * ============================================================ */
