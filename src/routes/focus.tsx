@@ -15,6 +15,7 @@ import {
 } from "@/lib/storage";
 import { setWhiteNoise, stopWhiteNoise, getCurrentWhiteNoise, unlockWhiteNoise } from "@/lib/white-noise";
 import { Play, Pause, RotateCcw, Plus, Sparkles, Wind } from "lucide-react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export const Route = createFileRoute("/focus")({
   head: () => ({ meta: [{ title: "进入专注 · GG RESET" }] }),
