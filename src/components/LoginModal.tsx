@@ -24,8 +24,8 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
     }
     setSending(true);
     try {
-      const { verificationId: vid } = await sendSmsCode(phone.trim());
-      setVerificationId(vid);
+      const handle = await sendSmsCode(phone.trim());
+      setOtpHandle(handle);
       setCooldown(60);
       const t = setInterval(() => {
         setCooldown((c) => {
@@ -45,7 +45,7 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
 
   async function handleSmsLogin() {
     setErr("");
-    if (!verificationId) {
+    if (!otpHandle) {
       setErr("请先获取验证码");
       return;
     }
@@ -55,7 +55,7 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
     }
     setSubmitting(true);
     try {
-      await loginWithSms(phone.trim(), code.trim(), verificationId);
+      await loginWithSms(otpHandle, code.trim());
       onClose();
     } catch (e) {
       setErr((e as Error).message || "登录失败");
