@@ -1,12 +1,8 @@
 // Tencent CloudBase Web SDK wrapper (browser-only).
-
-import cloudbase from "@cloudbase/js-sdk";
+// The SDK is loaded lazily so the SSR bundle never evaluates browser code.
 
 export const CLOUDBASE_ENV = "gg-reset-d1gb1eso5144bc964";
 
-// The SDK's public typings depend on optional peer packages that aren't
-// installed; cast to `any` so we can use the documented runtime APIs
-// (signInWithOtp / verifyOtp / signInWithPassword / updateUser / etc).
 type AnyApp = any;
 type AnyAuth = any;
 
@@ -16,9 +12,11 @@ let _auth: AnyAuth | null = null;
 export function getApp(): AnyApp {
   if (typeof window === "undefined") throw new Error("CloudBase is browser-only");
   if (!_app) {
-    _app = (cloudbase as unknown as { init: (c: unknown) => AnyApp }).init({
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require("@cloudbase/js-sdk");
+    const cloudbase = mod.default || mod;
+    _app = cloudbase.init({
       env: CLOUDBASE_ENV,
-      // SMS OTP requires ap-shanghai per SDK docs.
       region: "ap-shanghai",
     });
   }
