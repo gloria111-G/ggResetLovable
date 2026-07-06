@@ -1,6 +1,9 @@
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
-import type { ReactNode } from "react";
-import { ArrowLeft, Settings as SettingsIcon } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { ArrowLeft, Settings as SettingsIcon, User, LogIn } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import { LoginModal } from "@/components/LoginModal";
+import { AccountModal } from "@/components/AccountModal";
 
 export function AppShell({
   children,
@@ -16,6 +19,10 @@ export function AppShell({
   const router = useRouter();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const showSettingsBtn = path !== "/settings";
+  const onSettings = path === "/settings";
+  const { user } = useAuth();
+  const [openLogin, setOpenLogin] = useState(false);
+  const [openAccount, setOpenAccount] = useState(false);
 
   function goBack() {
     if (typeof window !== "undefined" && window.history.length > 1) {
@@ -51,7 +58,15 @@ export function AppShell({
             </Link>
           )}
         </div>
-        {showSettingsBtn ? (
+        {onSettings ? (
+          <button
+            onClick={() => (user ? setOpenAccount(true) : setOpenLogin(true))}
+            className="glass glass-hover rounded-full px-3 py-2 text-sm flex items-center gap-1 shrink-0"
+            aria-label={user ? "账户" : "登录"}
+          >
+            {user ? <User className="size-4" /> : <LogIn className="size-4" />}
+          </button>
+        ) : showSettingsBtn ? (
           <Link
             to="/settings"
             className="glass glass-hover rounded-full px-3 py-2 text-sm flex items-center gap-1 shrink-0"
@@ -67,6 +82,8 @@ export function AppShell({
       <main className="flex-1 px-4 md:px-6 py-6 max-w-5xl mx-auto w-full">{children}</main>
 
       <Disclaimer />
+      {openLogin && <LoginModal onClose={() => setOpenLogin(false)} />}
+      {openAccount && <AccountModal onClose={() => setOpenAccount(false)} />}
     </div>
   );
 }
