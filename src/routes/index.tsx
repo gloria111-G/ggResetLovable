@@ -70,6 +70,7 @@ function Home() {
       </main>
       <Disclaimer />
       {showGuide && <UsageGuideModal onClose={() => setShowGuide(false)} />}
+      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </div>
   );
 }
