@@ -1,37 +1,43 @@
 // Tencent CloudBase Web SDK wrapper (browser-only).
-// SSR-safe: all APIs must be called inside client-only paths.
 
 import cloudbase from "@cloudbase/js-sdk";
 
 export const CLOUDBASE_ENV = "gg-reset-d1gb1eso5144bc964";
 
-type App = ReturnType<typeof cloudbase.init>;
-type Auth = ReturnType<App["auth"]>;
+// The SDK's public typings depend on optional peer packages that aren't
+// installed; cast to `any` so we can use the documented runtime APIs
+// (signInWithOtp / verifyOtp / signInWithPassword / updateUser / etc).
+type AnyApp = any;
+type AnyAuth = any;
 
-let _app: App | null = null;
-let _auth: Auth | null = null;
+let _app: AnyApp | null = null;
+let _auth: AnyAuth | null = null;
 
-export function getApp(): App {
+export function getApp(): AnyApp {
   if (typeof window === "undefined") throw new Error("CloudBase is browser-only");
   if (!_app) {
-    _app = cloudbase.init({ env: CLOUDBASE_ENV });
+    _app = (cloudbase as unknown as { init: (c: unknown) => AnyApp }).init({
+      env: CLOUDBASE_ENV,
+      // SMS OTP requires ap-shanghai per SDK docs.
+      region: "ap-shanghai",
+    });
   }
   return _app;
 }
 
-export function getAuth(): Auth {
+export function getAuth(): AnyAuth {
   if (!_auth) {
     _auth = getApp().auth({ persistence: "local" });
   }
   return _auth;
 }
 
-export function getDB() {
+export function getDB(): any {
   return getApp().database();
 }
 
-/** Normalize phone: user inputs 11-digit CN number, SDK wants "+86 138...". */
+/** Normalize phone: user inputs 11-digit CN number, SDK wants "+8613800138000". */
 export function normalizePhone(raw: string): string {
   const digits = raw.replace(/\s+/g, "").replace(/^\+?86/, "");
-  return `+86 ${digits}`;
+  return `+86${digits}`;
 }

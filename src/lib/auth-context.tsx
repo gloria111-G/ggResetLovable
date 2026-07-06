@@ -16,17 +16,17 @@ export type AuthUser = {
   username?: string;
 };
 
+// Handle for a pending OTP challenge — returned by signInWithOtp and used to
+// finish the login by verifying the code.
+export type OtpHandle = { verifyOtp: (p: { token: string }) => Promise<any> };
+
 type Ctx = {
   ready: boolean;
   user: AuthUser | null;
   syncing: boolean;
   lastSyncedAt: number | null;
-  sendSmsCode: (phone: string) => Promise<{ verificationId: string }>;
-  loginWithSms: (
-    phone: string,
-    code: string,
-    verificationId: string,
-  ) => Promise<void>;
+  sendSmsCode: (phone: string) => Promise<OtpHandle>;
+  loginWithSms: (handle: OtpHandle, code: string) => Promise<void>;
   loginWithPassword: (username: string, password: string) => Promise<void>;
   setPassword: (username: string, newPassword: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -51,7 +51,6 @@ function pack() {
 }
 
 function applyRemote(data: Record<string, unknown>) {
-  if (!data || typeof data !== "object") return;
   const map: Record<string, string> = {
     affirmations: storage.KEYS.affirmations,
     goals: storage.KEYS.goals,
@@ -60,7 +59,7 @@ function applyRemote(data: Record<string, unknown>) {
     tags: storage.KEYS.tags,
   };
   for (const [k, key] of Object.entries(map)) {
-    const v = (data as Record<string, unknown>)[k];
+    const v = data[k];
     if (v !== undefined && v !== null) {
       localStorage.setItem(key, JSON.stringify(v));
     }
@@ -75,6 +74,45 @@ function hashPayload(p: unknown): string {
   }
 }
 
+async function readCurrentUser(): Promise<AuthUser | null> {
+  const auth = getAuth();
+  try {
+    // Prefer v3 getSession (returns null if signed out).
+    if (typeof auth.getSession === "function") {
+      const res = await auth.getSession();
+      const u = res?.data?.user || res?.user;
+      if (u) {
+        return {
+          uid: u.uid || u.id || "unknown",
+          phone: u.phone || u.phone_number || u.phoneNumber,
+          username: u.username || u.name,
+        };
+      }
+    }
+    // Fallback: v2 hasLoginState.
+    if (typeof auth.hasLoginState === "function") {
+      const state = await auth.hasLoginState();
+      if (state?.user) {
+        return {
+          uid: state.user.uid,
+          phone: state.user.phone_number || state.user.phoneNumber,
+          username: state.user.username || state.user.name,
+        };
+      }
+    }
+    if (auth.currentUser) {
+      return {
+        uid: auth.currentUser.uid,
+        phone: auth.currentUser.phoneNumber || auth.currentUser.phone_number,
+        username: auth.currentUser.username || auth.currentUser.name,
+      };
+    }
+  } catch (e) {
+    console.warn("[auth] readCurrentUser", e);
+  }
+  return null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -84,81 +122,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const userRef = useRef<AuthUser | null>(null);
   userRef.current = user;
 
-  const refreshUser = useCallback(async (): Promise<AuthUser | null> => {
-    try {
-      const auth = getAuth();
-      const state = await auth.hasLoginState();
-      if (!state) {
-        setUser(null);
-        return null;
-      }
-      // currentUser may be lazy — try to read
-      // @ts-expect-error currentUser typing
-      const cu = auth.currentUser;
-      const u: AuthUser = {
-        uid: cu?.uid || state.user?.uid || "unknown",
-        phone: cu?.phoneNumber || cu?.phone_number,
-        username: cu?.username,
-      };
-      setUser(u);
-      return u;
-    } catch {
-      setUser(null);
-      return null;
-    }
-  }, []);
-
-  const pullFromCloud = useCallback(async (uid: string) => {
-    try {
-      setSyncing(true);
-      const db = getDB();
-      const res = await db.collection(COLLECTION).doc(uid).get();
-      const doc = (res as { data?: unknown[] }).data?.[0] as
-        | Record<string, unknown>
-        | undefined;
-      if (doc) {
-        // Merge strategy: cloud wins if it has newer updatedAt than local pack.
-        const localPack = pack();
-        const cloudUpdatedAt = Number(doc.updatedAt || 0);
-        const localUpdatedAt = Number(localPack.updatedAt || 0);
-        // On very first login (local is empty/new) prefer cloud.
-        const localHasData =
-          (localPack.affirmations as unknown[]).length > 0 ||
-          (localPack.logs as unknown[]).length > 0 ||
-          (localPack.goals as unknown[]).length > 0;
-        if (!localHasData || cloudUpdatedAt >= localUpdatedAt) {
-          applyRemote(doc);
-          lastHash.current = hashPayload(pack());
-          // Reload so React state re-reads localStorage.
-          setTimeout(() => window.location.reload(), 50);
-          return;
-        }
-      }
-      // No cloud doc OR local is newer → push local up.
-      await pushCore(uid);
-    } catch (e) {
-      console.warn("[auth] pull failed", e);
-    } finally {
-      setSyncing(false);
-    }
-  }, []);
-
   const pushCore = useCallback(async (uid: string) => {
     const payload = pack();
     const h = hashPayload(payload);
     if (h === lastHash.current) return;
     const db = getDB();
     try {
-      // Upsert via set(); if doc missing, create.
-      await db
-        .collection(COLLECTION)
-        .doc(uid)
-        .set(payload as unknown as Record<string, unknown>);
+      await db.collection(COLLECTION).doc(uid).set(payload);
     } catch {
       try {
-        await db
-          .collection(COLLECTION)
-          .add({ _id: uid, ...payload });
+        await db.collection(COLLECTION).add({ _id: uid, ...payload });
       } catch (e2) {
         console.warn("[auth] push failed", e2);
         return;
@@ -168,11 +141,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLastSyncedAt(Date.now());
   }, []);
 
+  const pullFromCloud = useCallback(
+    async (uid: string) => {
+      try {
+        setSyncing(true);
+        const db = getDB();
+        const res = await db.collection(COLLECTION).doc(uid).get();
+        const doc = res?.data?.[0] as Record<string, unknown> | undefined;
+        if (doc) {
+          const localPack = pack();
+          const cloudUpdatedAt = Number(doc.updatedAt || 0);
+          const localUpdatedAt = Number(localPack.updatedAt || 0);
+          const localHasData =
+            (localPack.affirmations as unknown[]).length > 0 ||
+            (localPack.logs as unknown[]).length > 0 ||
+            (localPack.goals as unknown[]).length > 0;
+          if (!localHasData || cloudUpdatedAt >= localUpdatedAt) {
+            applyRemote(doc);
+            lastHash.current = hashPayload(pack());
+            setTimeout(() => window.location.reload(), 60);
+            return;
+          }
+        }
+        await pushCore(uid);
+      } catch (e) {
+        console.warn("[auth] pull failed", e);
+      } finally {
+        setSyncing(false);
+      }
+    },
+    [pushCore],
+  );
+
   const pushNow = useCallback(async () => {
     const u = userRef.current;
     if (!u) return;
     setSyncing(true);
     try {
+      lastHash.current = ""; // force
       await pushCore(u.uid);
     } finally {
       setSyncing(false);
@@ -183,15 +189,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     (async () => {
-      const u = await refreshUser();
+      const u = await readCurrentUser();
       if (u) {
+        setUser(u);
         await pullFromCloud(u.uid);
       }
       setReady(true);
     })();
-  }, [refreshUser, pullFromCloud]);
+  }, [pullFromCloud]);
 
-  // Background push loop for incremental sync.
+  // Incremental sync loop.
   useEffect(() => {
     if (!user) return;
     const id = setInterval(() => {
@@ -204,78 +211,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(id);
   }, [user, pushCore]);
 
-  const sendSmsCode = useCallback(async (phone: string) => {
+  const sendSmsCode = useCallback(async (phone: string): Promise<OtpHandle> => {
     const auth = getAuth();
-    // @ts-expect-error SDK v2 API
-    const v = await auth.getVerification({ phone_number: normalizePhone(phone) });
-    return { verificationId: v.verification_id };
+    const phoneNorm = normalizePhone(phone);
+    const res = await auth.signInWithOtp({ phone: phoneNorm });
+    if (res?.error) throw new Error(res.error.message || "发送验证码失败");
+    const handle = res?.data;
+    if (!handle?.verifyOtp) throw new Error("SDK 未返回验证句柄");
+    return handle as OtpHandle;
   }, []);
 
   const loginWithSms = useCallback(
-    async (phone: string, code: string, verificationId: string) => {
-      const auth = getAuth();
-      // @ts-expect-error SDK v2 API
-      const verifyResult = await auth.verify({
-        verification_id: verificationId,
-        verification_code: code,
-      });
-      const token = verifyResult.verification_token;
-      const phoneNorm = normalizePhone(phone);
-      try {
-        // @ts-expect-error SDK v2 API
-        await auth.signIn({ username: phoneNorm, verification_token: token });
-      } catch {
-        // New user → signUp
-        // @ts-expect-error SDK v2 API
-        await auth.signUp({
-          phone_number: phoneNorm,
-          verification_code: code,
-          verification_token: token,
-        });
-      }
-      const u = await refreshUser();
+    async (handle: OtpHandle, code: string) => {
+      const res = await handle.verifyOtp({ token: code });
+      if (res?.error) throw new Error(res.error.message || "验证码错误");
+      const u = await readCurrentUser();
       if (u) {
-        // First-login merge (local → cloud if cloud empty).
+        setUser(u);
         await pullFromCloud(u.uid);
       }
     },
-    [refreshUser, pullFromCloud],
+    [pullFromCloud],
   );
 
   const loginWithPassword = useCallback(
     async (username: string, password: string) => {
       const auth = getAuth();
-      const uname = username.match(/^\d{11}$/) ? normalizePhone(username) : username;
-      // @ts-expect-error SDK v2 API
-      await auth.signIn({ username: uname, password });
-      const u = await refreshUser();
-      if (u) await pullFromCloud(u.uid);
+      const uname = /^\d{11}$/.test(username) ? normalizePhone(username) : username;
+      const res = await auth.signInWithPassword({ username: uname, password });
+      if (res?.error) throw new Error(res.error.message || "登录失败");
+      const u = await readCurrentUser();
+      if (u) {
+        setUser(u);
+        await pullFromCloud(u.uid);
+      }
     },
-    [refreshUser, pullFromCloud],
+    [pullFromCloud],
   );
 
-  const setPassword = useCallback(async (username: string, newPassword: string) => {
-    const auth = getAuth();
-    // @ts-expect-error SDK v2 API
-    const cu = auth.currentUser;
-    if (!cu) throw new Error("未登录");
-    if (username) {
-      try {
-        if (typeof cu.updateUsername === "function") {
-          await cu.updateUsername(username);
-        }
-      } catch (e) {
-        console.warn("update username failed", e);
+  const setPassword = useCallback(
+    async (username: string, newPassword: string) => {
+      const auth = getAuth();
+      const payload: Record<string, unknown> = {};
+      if (username) payload.username = username;
+      if (newPassword) payload.password = newPassword;
+      // v3 updateUser
+      if (typeof auth.updateUser === "function") {
+        const res = await auth.updateUser(payload);
+        if (res?.error) throw new Error(res.error.message || "更新失败");
+        return;
       }
-    }
-    if (typeof cu.updatePassword === "function") {
-      await cu.updatePassword(newPassword);
-    } else if (typeof cu.setPassword === "function") {
-      await cu.setPassword(newPassword);
-    } else {
+      // v2 fallback
+      if (typeof auth.setPassword === "function") {
+        await auth.setPassword({ newPassword });
+        return;
+      }
       throw new Error("当前 SDK 不支持修改密码");
-    }
-  }, []);
+    },
+    [],
+  );
 
   const signOut = useCallback(async () => {
     try {
