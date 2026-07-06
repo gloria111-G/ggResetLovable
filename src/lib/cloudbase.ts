@@ -1,5 +1,7 @@
-// Tencent CloudBase Web SDK wrapper (browser-only).
-// The SDK is loaded lazily so the SSR bundle never evaluates browser code.
+// Tencent CloudBase Web SDK wrapper. All exported functions are
+// browser-only — they read `window` and must not be invoked during SSR.
+
+import cloudbase from "@cloudbase/js-sdk";
 
 export const CLOUDBASE_ENV = "gg-reset-d1gb1eso5144bc964";
 
@@ -12,10 +14,7 @@ let _auth: AnyAuth | null = null;
 export function getApp(): AnyApp {
   if (typeof window === "undefined") throw new Error("CloudBase is browser-only");
   if (!_app) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require("@cloudbase/js-sdk");
-    const cloudbase = mod.default || mod;
-    _app = cloudbase.init({
+    _app = (cloudbase as unknown as { init: (c: unknown) => AnyApp }).init({
       env: CLOUDBASE_ENV,
       region: "ap-shanghai",
     });
