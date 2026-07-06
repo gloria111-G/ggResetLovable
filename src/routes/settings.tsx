@@ -457,6 +457,12 @@ function SettingsPage() {
             <h3 className="font-display text-xl mb-4">更新日志</h3>
             <div className="space-y-4 text-sm leading-relaxed">
               <div>
+                <p className="font-medium mb-1">2027 / 7 / 6</p>
+                <p className="opacity-85">
+                  更新账号登录系统和自动备份云端功能。
+                </p>
+              </div>
+              <div>
                 <p className="font-medium mb-1">2026 / 7</p>
                 <p className="opacity-85">
                   更新肯定语数值手动调整、改变标签，重置计数器计数功能，增加呼吸球颜色对比，修复计数器音效和白噪音播放的bug。其他功能仍在开发中敬请期待！
