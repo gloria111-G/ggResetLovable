@@ -1,6 +1,9 @@
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
-import type { ReactNode } from "react";
-import { ArrowLeft, Settings as SettingsIcon } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { ArrowLeft, Settings as SettingsIcon, User, LogIn } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import { LoginModal } from "@/components/LoginModal";
+import { AccountModal } from "@/components/AccountModal";
 
 export function AppShell({
   children,
@@ -16,6 +19,10 @@ export function AppShell({
   const router = useRouter();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const showSettingsBtn = path !== "/settings";
+  const onSettings = path === "/settings";
+  const { user } = useAuth();
+  const [openLogin, setOpenLogin] = useState(false);
+  const [openAccount, setOpenAccount] = useState(false);
 
   function goBack() {
     if (typeof window !== "undefined" && window.history.length > 1) {
