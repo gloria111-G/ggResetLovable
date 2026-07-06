@@ -58,7 +58,15 @@ export function AppShell({
             </Link>
           )}
         </div>
-        {showSettingsBtn ? (
+        {onSettings ? (
+          <button
+            onClick={() => (user ? setOpenAccount(true) : setOpenLogin(true))}
+            className="glass glass-hover rounded-full px-3 py-2 text-sm flex items-center gap-1 shrink-0"
+            aria-label={user ? "账户" : "登录"}
+          >
+            {user ? <User className="size-4" /> : <LogIn className="size-4" />}
+          </button>
+        ) : showSettingsBtn ? (
           <Link
             to="/settings"
             className="glass glass-hover rounded-full px-3 py-2 text-sm flex items-center gap-1 shrink-0"
@@ -74,6 +82,8 @@ export function AppShell({
       <main className="flex-1 px-4 md:px-6 py-6 max-w-5xl mx-auto w-full">{children}</main>
 
       <Disclaimer />
+      {openLogin && <LoginModal onClose={() => setOpenLogin(false)} />}
+      {openAccount && <AccountModal onClose={() => setOpenAccount(false)} />}
     </div>
   );
 }
