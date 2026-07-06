@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { X, Loader2 } from "lucide-react";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth, type OtpHandle } from "@/lib/auth-context";
 
 export function LoginModal({ onClose }: { onClose: () => void }) {
   const { sendSmsCode, loginWithSms, loginWithPassword } = useAuth();
   const [tab, setTab] = useState<"sms" | "password">("sms");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
-  const [verificationId, setVerificationId] = useState("");
+  const [otpHandle, setOtpHandle] = useState<OtpHandle | null>(null);
   const [cooldown, setCooldown] = useState(0);
   const [sending, setSending] = useState(false);
   const [submitting, setSubmitting] = useState(false);
