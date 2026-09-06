@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { X, LogOut, Loader2, CloudCheck } from "lucide-react";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth, type PasswordSetupHandle } from "@/lib/auth-context";
 
 export function AccountModal({ onClose }: { onClose: () => void }) {
-  const { user, setPassword, signOut, pushNow, syncing } = useAuth();
+  const { user, setUsername, sendPasswordCode, finishPasswordSetup, signOut, pushNow, syncing } =
+    useAuth();
   const defaultUsername = user?.username || user?.phone?.replace(/^\+86\s*/, "") || "";
-  const [username, setUsername] = useState(defaultUsername);
+  const [username, setUsernameVal] = useState(defaultUsername);
   const [password, setPasswordVal] = useState("");
+  const [code, setCode] = useState("");
+  const [handle, setHandle] = useState<PasswordSetupHandle | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
@@ -15,17 +18,45 @@ export function AccountModal({ onClose }: { onClose: () => void }) {
   async function handleSave() {
     setErr("");
     setMsg("");
-    if (!password || password.length < 6) {
+    const trimmedUser = username.trim();
+    const usernameChanged = trimmedUser && trimmedUser !== defaultUsername;
+
+    if (!usernameChanged && !password) {
+      setErr("请修改用户名或填写新密码");
+      return;
+    }
+    if (password && password.length < 6) {
       setErr("密码至少 6 位");
       return;
     }
+
     setSaving(true);
     try {
-      await setPassword(username.trim(), password);
+      if (usernameChanged) {
+        await setUsername(trimmedUser);
+      }
+
+      if (!password) {
+        setMsg("用户名已更新");
+        return;
+      }
+
+      // 第一次保存：发送验证码到绑定手机，等待用户输入验证码后再次保存
+      if (!handle) {
+        const h = await sendPasswordCode();
+        setHandle(h);
+        setCode("");
+        setMsg("验证码已发送到你的手机号，输入验证码后请再次点击保存");
+        return;
+      }
+
+      await finishPasswordSetup(handle, code, password);
       setMsg("密码已更新，下次可直接用密码登录");
       setPasswordVal("");
+      setCode("");
+      setHandle(null);
     } catch (e) {
-      setErr((e as Error).message || "更新失败");
+      setErr((e as Error).message || "保存失败");
     } finally {
       setSaving(false);
     }
@@ -59,7 +90,7 @@ export function AccountModal({ onClose }: { onClose: () => void }) {
             <input
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => setUsernameVal(e.target.value)}
               className="glass rounded-2xl w-full px-4 py-3 text-sm outline-none"
               placeholder="默认为手机号"
             />
@@ -71,16 +102,29 @@ export function AccountModal({ onClose }: { onClose: () => void }) {
               value={password}
               onChange={(e) => setPasswordVal(e.target.value)}
               className="glass rounded-2xl w-full px-4 py-3 text-sm outline-none"
-              placeholder="至少 6 位"
+              placeholder="至少 6 位，用于密码登录"
             />
           </div>
+          {handle && (
+            <div>
+              <p className="text-xs opacity-70 mb-1.5">短信验证码</p>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                className="glass rounded-2xl w-full px-4 py-3 text-sm outline-none"
+                placeholder="输入手机收到的验证码"
+              />
+            </div>
+          )}
           <button
             onClick={handleSave}
             disabled={saving}
             className="glass-strong selected-strong rounded-2xl w-full py-3 text-sm font-medium disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {saving && <Loader2 className="size-4 animate-spin" />}
-            保存
+            {handle ? "确认设置密码" : "保存"}
           </button>
 
           <button

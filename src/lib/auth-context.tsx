@@ -20,6 +20,10 @@ export type AuthUser = {
 // finish the login by verifying the code.
 export type OtpHandle = { verifyOtp: (p: { token: string }) => Promise<any> };
 
+// Handle returned by reauthenticate() after the verification code is sent to
+// the bound phone — call it with the code + new password to finish the update.
+export type PasswordSetupHandle = (p: { nonce: string; password: string }) => Promise<any>;
+
 type Ctx = {
   ready: boolean;
   user: AuthUser | null;
@@ -27,8 +31,15 @@ type Ctx = {
   lastSyncedAt: number | null;
   sendSmsCode: (phone: string) => Promise<OtpHandle>;
   loginWithSms: (handle: OtpHandle, code: string) => Promise<void>;
-  loginWithPassword: (username: string, password: string) => Promise<void>;
-  setPassword: (username: string, newPassword: string) => Promise<void>;
+  loginWithPassword: (account: string, password: string) => Promise<void>;
+  setUsername: (username: string) => Promise<void>;
+  /** 向已绑定手机号发送验证码，返回「确认设置密码」句柄 */
+  sendPasswordCode: () => Promise<PasswordSetupHandle>;
+  finishPasswordSetup: (
+    handle: PasswordSetupHandle,
+    code: string,
+    newPassword: string,
+  ) => Promise<void>;
   signOut: () => Promise<void>;
   pushNow: () => Promise<void>;
 };
@@ -235,10 +246,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const loginWithPassword = useCallback(
-    async (username: string, password: string) => {
+    async (account: string, password: string) => {
       const auth = getAuth();
-      const uname = /^\d{11}$/.test(username) ? normalizePhone(username) : username;
-      const res = await auth.signInWithPassword({ username: uname, password });
+      // 11 位数字按“手机号 + 密码”登录，其它输入按“用户名 + 密码”登录
+      const isPhone = /^\d{11}$/.test(account);
+      const res = isPhone
+        ? await auth.signInWithPassword({ phone: account, password })
+        : await auth.signInWithPassword({ username: account, password });
       if (res?.error) throw new Error(res.error.message || "登录失败");
       const u = await readCurrentUser();
       if (u) {
@@ -249,24 +263,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [pullFromCloud],
   );
 
-  const setPassword = useCallback(
-    async (username: string, newPassword: string) => {
-      const auth = getAuth();
-      const payload: Record<string, unknown> = {};
-      if (username) payload.username = username;
-      if (newPassword) payload.password = newPassword;
-      // v3 updateUser
-      if (typeof auth.updateUser === "function") {
-        const res = await auth.updateUser(payload);
-        if (res?.error) throw new Error(res.error.message || "更新失败");
-        return;
-      }
-      // v2 fallback
-      if (typeof auth.setPassword === "function") {
-        await auth.setPassword({ newPassword });
-        return;
-      }
-      throw new Error("当前 SDK 不支持修改密码");
+  const setUsername = useCallback(async (username: string) => {
+    const auth = getAuth();
+    const res = await auth.updateUser({ username });
+    if (res?.error) throw new Error(res.error.message || "更新失败");
+    const u = await readCurrentUser();
+    if (u) setUser(u);
+  }, []);
+
+  const sendPasswordCode = useCallback(async (): Promise<PasswordSetupHandle> => {
+    const auth = getAuth();
+    // reauthenticate 会向当前账号绑定的手机号发送验证码，
+    // 返回的 updateUser 回调用于带验证码设置新密码
+    const res = await auth.reauthenticate();
+    if (res?.error) throw new Error(res.error.message || "发送验证码失败");
+    const updater = res?.data?.updateUser;
+    if (typeof updater !== "function") {
+      throw new Error("当前账号未绑定手机号，无法通过短信验证设置密码");
+    }
+    return updater as PasswordSetupHandle;
+  }, []);
+
+  const finishPasswordSetup = useCallback(
+    async (handle: PasswordSetupHandle, code: string, newPassword: string) => {
+      if (!/^\d{4,6}$/.test(code.trim())) throw new Error("请输入正确的验证码");
+      const res = await handle({ nonce: code.trim(), password: newPassword });
+      if (res?.error) throw new Error(res.error.message || "设置密码失败");
     },
     [],
   );
@@ -293,7 +315,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sendSmsCode,
         loginWithSms,
         loginWithPassword,
-        setPassword,
+        setUsername,
+        sendPasswordCode,
+        finishPasswordSetup,
         signOut,
         pushNow,
       }}

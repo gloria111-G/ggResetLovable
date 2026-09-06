@@ -3,7 +3,12 @@
 
 import cloudbase from "@cloudbase/js-sdk";
 
-export const CLOUDBASE_ENV = "gg-reset-d1gb1eso5144bc964";
+// CloudBase Env ID（云开发控制台 → 环境 → 环境ID）。
+// 可通过构建期环境变量 VITE_TCB_ENV 覆盖（见仓库根目录 .env.example），
+// 未配置时回退到下面的代码内默认值。
+export const CLOUDBASE_ENV =
+  (import.meta.env?.VITE_TCB_ENV as string | undefined)?.trim() ||
+  "gg-reset-d1gb1eso5144bc964";
 
 type AnyApp = any;
 type AnyAuth = any;
@@ -16,7 +21,7 @@ export function getApp(): AnyApp {
   if (!_app) {
     _app = (cloudbase as unknown as { init: (c: unknown) => AnyApp }).init({
       env: CLOUDBASE_ENV,
-      region: "ap-shanghai",
+      region: "ap-shanghai", // 短信验证码（OTP）仅支持上海地域
     });
   }
   return _app;
@@ -33,8 +38,12 @@ export function getDB(): any {
   return getApp().database();
 }
 
-/** Normalize phone: user inputs 11-digit CN number, SDK wants "+8613800138000". */
+/** Normalize a user-entered Chinese mobile number to the bare 11 digits that
+ *  CloudBase Auth v2 SMS/OTP APIs expect, e.g.
+ *  "138 0013 8000" / "+86 13800138000" → "13800138000". */
 export function normalizePhone(raw: string): string {
-  const digits = raw.replace(/\s+/g, "").replace(/^\+?86/, "");
-  return `+86${digits}`;
+  return raw
+    .replace(/[\s-]/g, "")
+    .replace(/^\+?86/, "")
+    .slice(-11);
 }
