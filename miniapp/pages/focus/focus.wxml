@@ -1,0 +1,208 @@
+<view class="app {{dark ? 'theme-dark' : ''}}">
+  <image class="app-bg" src="{{bg}}" mode="aspectFill" />
+
+  <view class="wrap">
+
+    <!-- ======== 顶部模式切换 ======== -->
+    <view class="seg-row" wx:if="{{showBreath}}">
+      <view class="seg {{tab === 'affirm' ? 'seg-on' : ''}}" data-tab="affirm" bindtap="segTap">肯定语</view>
+      <view class="seg {{tab === 'breath' ? 'seg-on' : ''}}" data-tab="breath" bindtap="segTap">呼吸调整</view>
+    </view>
+    <view class="seg-row" wx:else>
+      <view class="seg seg-on">肯定语</view>
+    </view>
+
+    <!-- ============================================================
+         肯定语
+    ============================================================ -->
+    <block wx:if="{{tab === 'affirm'}}">
+      <!-- 选择：标签 + 肯定语 -->
+      <view class="glass card mt20">
+        <view class="t-xs t-mut mb12">选择肯定语标签</view>
+        <scroll-view scroll-x class="chip-row">
+          <view class="chip {{selectedTag === item ? 'chip-on' : ''}}" wx:for="{{tags}}" wx:key="*this" data-tag="{{item}}" bindtap="tagTap">{{item}}</view>
+        </scroll-view>
+        <view class="t-xs t-mut mt20 mb12">选择肯定语</view>
+        <scroll-view wx:if="{{affs.length}}" scroll-x class="chip-row">
+          <view
+            class="chip {{selectedAff === item.id ? 'chip-on' : ''}}"
+            wx:for="{{affs}}"
+            wx:key="id"
+            data-id="{{item.id}}"
+            bindtap="affTap"
+          >{{item.text}}</view>
+        </scroll-view>
+        <view wx:else class="empty">该标签下暂无肯定语，可前往「目标列表」添加</view>
+        <view class="t-sm serif t-mut mt16 center" wx:if="{{selectedAffText}}">“{{selectedAffText}}”</view>
+      </view>
+
+      <!-- 时长快捷选择（倒计时 & 未开始） -->
+      <view class="glass card mt20" wx:if="{{showDurPanel && !running && !paused && isTimer}}">
+        <view class="row-between">
+          <text class="t-xs t-mut">时长选择</text>
+          <text class="t-xs t-mut2">倒计时模式</text>
+        </view>
+        <scroll-view scroll-x class="chip-row mt16">
+          <view class="chip" wx:for="{{durChips}}" wx:key="*this" data-min="{{item}}" bindtap="durChipTap">{{item}} 分钟</view>
+          <view class="chip chip-on" bindtap="openCustomDur">⏱ 自定义</view>
+        </scroll-view>
+      </view>
+
+      <!-- 会话计时面板 -->
+      <view class="glass card mt20 center">
+        <view class="row-between" wx:if="{{resetEnabled}}">
+          <text class="t-xs t-mut2">「{{selectedTag}}」#今日 {{todayBadge}} · 累计 {{cumBadge}}</text>
+          <view class="btn btn-ghost btn-mini" hover-class="pressed" bindtap="resetMenu">重置计数</view>
+        </view>
+
+        <view class="t-num mono mt12" style="letter-spacing:2rpx">{{clock}}</view>
+        <view class="t-xs t-mut mt8">
+          {{isTimer ? '倒计时模式' : '正计时模式'}}{{running ? ' · 进行中' : (paused ? ' · 已暂停' : ' · 未开始')}}
+        </view>
+
+        <!-- 控制按钮 -->
+        <view class="row center mt24" style="gap:20rpx;justify-content:center">
+          <block wx:if="{{!running && !paused}}">
+            <view class="btn btn-primary btn-lg" hover-class="pressed" bindtap="startAffirm">开始</view>
+          </block>
+          <block wx:if="{{running}}">
+            <view class="btn btn-primary" hover-class="pressed" bindtap="pauseAffirm">暂停</view>
+            <view class="btn btn-ghost" hover-class="pressed" bindtap="finishAffirmNow">结束并记录</view>
+          </block>
+          <block wx:if="{{paused}}">
+            <view class="btn btn-primary" hover-class="pressed" bindtap="resumeAffirm">继续</view>
+            <view class="btn btn-ghost" hover-class="pressed" bindtap="finishAffirmNow">结束并记录</view>
+            <view class="btn btn-ghost" hover-class="pressed" bindtap="resetAffirm">重置</view>
+          </block>
+        </view>
+      </view>
+
+      <!-- 大计数圆（可点击 +1） -->
+      <view class="glass card center mt20" wx:if="{{showCounter}}">
+        <view
+          class="count-ring"
+          hover-class="pressed"
+          bindtap="countTap"
+        >
+          <view class="count-num mono">{{count}}</view>
+          <view class="count-label">轻触 +1 次</view>
+        </view>
+        <view class="row center mt16" style="gap:32rpx;justify-content:center">
+          <text class="t-xs t-mut">今日 {{todayBadge}}</text>
+          <text class="t-xs t-mut2">·</text>
+          <text class="t-xs t-mut">累计 {{cumBadge}}</text>
+        </view>
+
+        <view class="row-between mt20">
+          <view>
+            <text class="t-md">自动计数</text>
+            <view class="t-xs t-mut2">每 {{settings.autoCountInterval}} 秒自动 +1（开启时）</view>
+          </view>
+          <switch checked="{{autoOn}}" color="#07c160" bindchange="autoSwitch" />
+        </view>
+      </view>
+
+      <!-- 环境音 / 声音 -->
+      <view class="glass card mt20">
+        <view class="t-xs t-mut mb12">白噪音</view>
+        <view class="chip-wrap">
+          <view
+            class="chip {{noiseOn === item.key ? 'chip-on' : ''}}"
+            wx:for="{{noiseTracks}}"
+            wx:key="key"
+            data-key="{{item.key}}"
+            bindtap="noiseTap"
+          >{{item.label}}</view>
+        </view>
+        <view class="row-between mt20">
+          <view>
+            <text class="t-md">计数提示音</text>
+            <view class="t-xs t-mut2">每次 +1 发出轻滴答声</view>
+          </view>
+          <switch checked="{{sound}}" color="#07c160" bindchange="soundSwitch" />
+        </view>
+      </view>
+    </block>
+
+    <!-- ============================================================
+         呼吸调整
+    ============================================================ -->
+    <block wx:if="{{tab === 'breath'}}">
+      <!-- 呼吸球 -->
+      <view class="glass card mt20 center">
+        <view class="breath-holder">
+          <view class="breath-ball" style="{{ballCss}};background:var(--glass-strong);box-shadow:var(--shadow-strong)">
+            <text class="t-h2 serif">{{phaseLabel}}</text>
+          </view>
+        </view>
+        <view class="t-xs t-mut mt16">当前呼吸模式：{{breathLabel}}</view>
+
+        <view class="t-num mono mt24">{{clock}}</view>
+        <view class="t-xs t-mut2 mt8">{{running ? '进行中' : (paused ? '已暂停' : '未开始')}}</view>
+
+        <scroll-view scroll-x class="chip-row mt24" wx:if="{{showDurPanel && !running && !paused && isTimer}}">
+          <view class="chip" wx:for="{{durChips}}" wx:key="*this" data-min="{{item}}" bindtap="durChipTap">{{item}} 分钟</view>
+          <view class="chip chip-on" bindtap="openCustomDur">⏱ 自定义</view>
+        </scroll-view>
+
+        <view class="row center mt24" style="gap:20rpx;justify-content:center">
+          <block wx:if="{{!running && !paused}}">
+            <view class="btn btn-primary btn-lg" hover-class="pressed" bindtap="breathStart">开始呼吸</view>
+          </block>
+          <block wx:if="{{running}}">
+            <view class="btn btn-primary" hover-class="pressed" bindtap="breathPause">暂停</view>
+            <view class="btn btn-ghost" hover-class="pressed" bindtap="breathDone">结束</view>
+          </block>
+          <block wx:if="{{paused}}">
+            <view class="btn btn-primary" hover-class="pressed" bindtap="breathResume">继续</view>
+            <view class="btn btn-ghost" hover-class="pressed" bindtap="breathDone">结束</view>
+            <view class="btn btn-ghost" hover-class="pressed" bindtap="breathReset">重置</view>
+          </block>
+        </view>
+
+        <view class="t-xs t-mut2 mt20 center" style="line-height:1.8">
+          吸气时让腹部鼓起，呼气时缓缓吐出；
+          <br />球体缩放即呼吸节奏，可跟随练习。
+        </view>
+      </view>
+    </block>
+
+    <view class="t-xs t-mut2 center mt32">
+      提示：离开页面会自动保存进度，回来可继续。
+    </view>
+  </view>
+
+  <!-- ======== 自定义时长弹层 ======== -->
+  <view class="overlay-mask" wx:if="{{showDurCustom}}" bindtap="closeCustomDur">
+    <view class="dialog" catchtap="noop" style="max-width:520rpx">
+      <view class="dialog-close" bindtap="closeCustomDur">✕</view>
+      <view class="center t-h2">自定义时长</view>
+      <picker-view
+        class="dur-picker"
+        value="{{[hourIndex, minIndex]}}"
+        bindchange="onDurColumnsChange"
+      >
+        <picker-view-column>
+          <view class="dur-col" wx:for="{{hoursArr}}" wx:key="*this">{{item}}</view>
+        </picker-view-column>
+        <picker-view-column>
+          <view class="dur-col" wx:for="{{minsArr}}" wx:key="*this">{{item}}</view>
+        </picker-view-column>
+      </picker-view>
+      <view class="row mt20" style="gap:16rpx">
+        <view class="btn btn-ghost flex-1" hover-class="pressed" bindtap="closeCustomDur">取消</view>
+        <view class="btn btn-primary flex-1" hover-class="pressed" bindtap="confirmCustomDur">确定</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ======== 庆祝弹层 ======== -->
+  <view class="overlay-mask" wx:if="{{celebration}}" catchtap="celebrateClose">
+    <view class="center celebrate-pop">
+      <view style="font-size:120rpx">🎉</view>
+      <view class="serif t-h1 mt16">太棒了</view>
+      <view class="t-md t-mut mt12">{{celebrationText}}</view>
+      <view class="t-xs t-mut2 mt12">轻触任意处关闭</view>
+    </view>
+  </view>
+</view>

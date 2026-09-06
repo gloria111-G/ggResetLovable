@@ -1,0 +1,107 @@
+/* =========================================================
+   settings.wxss —— 设置页
+   复用 app.wxss 全局玻璃卡片 / 开关行 / seg / chip / 弹层
+   ========================================================= */
+
+.group-title {
+  display: block;
+  font-size: 22rpx;
+  letter-spacing: 6rpx;
+  color: var(--mut);
+  margin-bottom: 24rpx;
+}
+.sub-label {
+  display: block;
+  font-size: 22rpx;
+  letter-spacing: 6rpx;
+  color: var(--mut2);
+}
+
+.btn-row { display: flex; gap: 14rpx; }
+.danger-text { color: #d9534f; }
+
+/* ---------------- 开关行微调 ---------------- */
+.switch-row .label { flex: 1; }
+
+/* ---------------- 自定义呼吸数字格 ---------------- */
+.breath-grid {
+  display: flex;
+  gap: 14rpx;
+  margin-top: 20rpx;
+}
+.breath-cell { flex: 1; text-align: center; }
+.breath-cell text { display: block; margin-bottom: 10rpx; }
+.breath-cell input {
+  width: 100%;
+  background: var(--glass);
+  border: 1rpx solid var(--border);
+  border-radius: 20rpx;
+  padding: 16rpx 0;
+  text-align: center;
+  font-size: 30rpx;
+  color: var(--fg);
+  font-family: Menlo, Consolas, monospace;
+}
+
+/* ---------------- 导入文本框 ---------------- */
+.ta {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 240rpx;
+  margin-top: 20rpx;
+  background: var(--glass);
+  border: 1rpx solid var(--border);
+  border-radius: 24rpx;
+  padding: 20rpx 24rpx;
+  font-size: 22rpx;
+  line-height: 1.6;
+  color: var(--fg);
+}
+.ta-placeholder { color: var(--mut2); }
+
+/* ---------------- 长弹层（使用指南） ---------------- */
+.dialog-scroll {
+  display: flex;
+  flex-direction: column;
+  max-height: 86vh;
+}
+.dialog-body {
+  flex: none;
+  height: 54vh;
+  margin-top: 20rpx;
+  box-sizing: border-box;
+}
+.guide-sec + .guide-sec { margin-top: 30rpx; }
+.guide-h {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  margin-bottom: 8rpx;
+}
+.guide-p {
+  display: block;
+  font-size: 24rpx;
+  line-height: 1.75;
+  color: var(--fg);
+  opacity: 0.88;
+}
+.guide-li {
+  display: block;
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: var(--fg);
+  opacity: 0.72;
+  margin-top: 6rpx;
+}
+
+/* ---------------- 更新日志 ---------------- */
+.log-date {
+  display: block;
+  font-size: 24rpx;
+  font-weight: 600;
+  margin-bottom: 6rpx;
+}
+
+/* ---------------- 状态 ---------------- */
+.ok { color: #07c160; font-size: 20rpx; }
+.disabled { opacity: 0.4; }

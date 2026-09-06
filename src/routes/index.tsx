@@ -6,6 +6,7 @@ import { UsageGuideModal } from "@/components/UsageGuide";
 import { LoginModal } from "@/components/LoginModal";
 import { useApp } from "@/lib/app-context";
 import { useAuth } from "@/lib/auth-context";
+import { maskOpenId } from "@/lib/wx-login";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -20,7 +21,7 @@ const tiles = [
 
 function Home() {
   const { settings } = useApp();
-  const { user } = useAuth();
+  const { user, ready } = useAuth();
   const [showGuide, setShowGuide] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   return (
@@ -29,17 +30,20 @@ function Home() {
         <div className="text-center mb-12">
           <p className="text-xs tracking-[0.4em] opacity-60 mb-3">FOCUS · COUNTER · TIMER</p>
           <h1 className="font-display text-6xl md:text-7xl tracking-tight">GG RESET</h1>
-          {!user && (
+          {ready && !user && (
             <button
               onClick={() => setShowLogin(true)}
               className="mt-4 text-xs opacity-80 hover:opacity-100 underline underline-offset-4 transition block mx-auto"
             >
-              点击登录账号，数据自动同步云端
+              微信一键快捷登录 / 进入应用
             </button>
           )}
-          {user && (
+          {ready && user && (
             <p className="mt-4 text-xs opacity-70">
-              已登录 · {user.phone?.replace(/^\+86\s*/, "") || user.username}
+              已登录 · {user.nickname}
+              {user.openid && (
+                <span className="font-num"> · {maskOpenId(user.openid)}</span>
+              )}
             </p>
           )}
           {settings.homeGuideShortcut && (

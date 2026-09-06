@@ -1,83 +1,41 @@
 import { useState } from "react";
-import { X, Loader2 } from "lucide-react";
-import { useAuth, type OtpHandle } from "@/lib/auth-context";
+import { ArrowRight, Loader2, ShieldCheck, X } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import { getDeviceOpenId, maskOpenId } from "@/lib/wx-login";
+
+/** 微信绿色圆角标识（延续 GG RESET 玻璃质感，不引入外部图标依赖）。 */
+function WeChatBadge({ className = "size-10" }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={`relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-2xl bg-[#07C160] text-white ${className}`}
+      style={{ boxShadow: "0 6px 18px rgba(7, 193, 96, 0.35)" }}
+    >
+      <span className="relative z-10 text-[11px] font-semibold tracking-tight">微信</span>
+      <span className="absolute inset-x-0 top-0 h-1/2 bg-white/20" />
+    </span>
+  );
+}
 
 export function LoginModal({ onClose }: { onClose: () => void }) {
-  const { sendSmsCode, loginWithSms, loginWithPassword } = useAuth();
-  const [tab, setTab] = useState<"sms" | "password">("sms");
-  const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("");
-  const [otpHandle, setOtpHandle] = useState<OtpHandle | null>(null);
-  const [cooldown, setCooldown] = useState(0);
-  const [sending, setSending] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const { quickLogin } = useAuth();
+  const [existingOpenId] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : getDeviceOpenId(),
+  );
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
-  const [pwUsername, setPwUsername] = useState("");
-  const [pwPassword, setPwPassword] = useState("");
-
-  async function handleSend() {
+  async function handleQuickLogin() {
+    if (busy) return;
     setErr("");
-    if (!/^\d{11}$/.test(phone.trim())) {
-      setErr("请输入 11 位手机号");
-      return;
-    }
-    setSending(true);
+    setBusy(true);
     try {
-      const handle = await sendSmsCode(phone.trim());
-      setOtpHandle(handle);
-      setCooldown(60);
-      const t = setInterval(() => {
-        setCooldown((c) => {
-          if (c <= 1) {
-            clearInterval(t);
-            return 0;
-          }
-          return c - 1;
-        });
-      }, 1000);
-    } catch (e) {
-      setErr((e as Error).message || "发送失败");
-    } finally {
-      setSending(false);
-    }
-  }
-
-  async function handleSmsLogin() {
-    setErr("");
-    if (!otpHandle) {
-      setErr("请先获取验证码");
-      return;
-    }
-    if (!/^\d{4,6}$/.test(code.trim())) {
-      setErr("请输入验证码");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await loginWithSms(otpHandle, code.trim());
+      await quickLogin();
+      // 登录成功：直接关闭弹窗，页面全局“已登录”态由 AuthProvider 自动更新
       onClose();
     } catch (e) {
-      setErr((e as Error).message || "登录失败");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function handlePwLogin() {
-    setErr("");
-    if (!pwUsername.trim() || !pwPassword) {
-      setErr("请输入账号和密码");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await loginWithPassword(pwUsername.trim(), pwPassword);
-      onClose();
-    } catch (e) {
-      setErr((e as Error).message || "登录失败");
-    } finally {
-      setSubmitting(false);
+      setBusy(false);
+      setErr(e instanceof Error ? e.message : "登录失败，请重试");
     }
   }
 
@@ -97,105 +55,54 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
         >
           <X className="size-4" />
         </button>
+
         <p className="font-display text-2xl text-center mb-1">登录 GG RESET</p>
         <p className="text-[11px] opacity-60 text-center mb-5">
-          登录后数据自动同步云端，换设备也不丢
+          微信小程序同款 · 一键快捷登录，无需手机号与验证码
         </p>
 
-        <div className="flex gap-2 mb-5">
-          <button
-            onClick={() => setTab("sms")}
-            className={`flex-1 rounded-2xl py-2 text-sm ${
-              tab === "sms" ? "glass-strong selected-strong" : "glass"
-            }`}
-          >
-            短信登录
-          </button>
-          <button
-            onClick={() => setTab("password")}
-            className={`flex-1 rounded-2xl py-2 text-sm ${
-              tab === "password" ? "glass-strong selected-strong" : "glass"
-            }`}
-          >
-            密码登录
-          </button>
+        <div className="glass rounded-2xl px-4 py-3 mb-5 flex items-start gap-2.5">
+          <ShieldCheck className="size-4 mt-0.5 shrink-0 opacity-70" />
+          <p className="text-[11px] leading-relaxed opacity-70">
+            {existingOpenId ? (
+              <>
+                已检测到本机账号{" "}
+                <span className="font-num">{maskOpenId(existingOpenId)}</span>
+                ，点击下方按钮将一键恢复登录。
+              </>
+            ) : (
+              <>
+                首次使用将为本机自动创建唯一账号（OpenID），
+                数据安全保存在当前浏览器。
+              </>
+            )}
+          </p>
         </div>
 
-        {tab === "sms" ? (
-          <div className="space-y-3">
-            <input
-              type="tel"
-              inputMode="numeric"
-              placeholder="手机号"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="glass rounded-2xl w-full px-4 py-3 text-sm outline-none"
-            />
-            <div className="flex gap-2">
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="短信验证码"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                className="glass rounded-2xl flex-1 px-4 py-3 text-sm outline-none"
-              />
-              <button
-                onClick={handleSend}
-                disabled={sending || cooldown > 0}
-                className="glass glass-hover rounded-2xl px-4 py-3 text-xs whitespace-nowrap disabled:opacity-50"
-              >
-                {sending ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : cooldown > 0 ? (
-                  `${cooldown}s`
-                ) : (
-                  "发送验证码"
-                )}
-              </button>
-            </div>
-            <button
-              onClick={handleSmsLogin}
-              disabled={submitting}
-              className="glass-strong selected-strong rounded-2xl w-full py-3 text-sm font-medium disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {submitting && <Loader2 className="size-4 animate-spin" />}
-              登录 / 注册
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <input
-              type="text"
-              placeholder="手机号或用户名"
-              value={pwUsername}
-              onChange={(e) => setPwUsername(e.target.value)}
-              className="glass rounded-2xl w-full px-4 py-3 text-sm outline-none"
-            />
-            <input
-              type="password"
-              placeholder="密码"
-              value={pwPassword}
-              onChange={(e) => setPwPassword(e.target.value)}
-              className="glass rounded-2xl w-full px-4 py-3 text-sm outline-none"
-            />
-            <button
-              onClick={handlePwLogin}
-              disabled={submitting}
-              className="glass-strong selected-strong rounded-2xl w-full py-3 text-sm font-medium disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {submitting && <Loader2 className="size-4 animate-spin" />}
-              登录
-            </button>
-            <p className="text-[11px] opacity-60 text-center">
-              首次使用请先用短信登录，然后到「设置」中设置密码
-            </p>
-          </div>
-        )}
+        <button
+          onClick={handleQuickLogin}
+          disabled={busy}
+          className="glass-strong selected-strong rounded-2xl w-full px-4 py-4 text-sm font-medium disabled:opacity-60 transition active:scale-[0.98] flex items-center justify-center gap-3"
+        >
+          <WeChatBadge className="size-10" />
+          <span className="flex items-baseline gap-1.5">
+            <span>微信一键快捷登录</span>
+            <span className="opacity-50 font-normal text-[11px]">/ 进入应用</span>
+          </span>
+          {busy ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <ArrowRight className="size-4 opacity-60" />
+          )}
+        </button>
 
-        {err && (
-          <p className="mt-4 text-xs text-center text-red-400/90">{err}</p>
-        )}
+        <p className="mt-4 text-[11px] opacity-50 text-center leading-relaxed">
+          模拟微信小程序 wx.login 静默登录 · OpenID 由本机生成
+          <br />
+          不收集、不上传、不分享任何个人信息
+        </p>
+
+        {err && <p className="mt-3 text-xs text-center text-red-400/90">{err}</p>}
       </div>
     </div>
   );

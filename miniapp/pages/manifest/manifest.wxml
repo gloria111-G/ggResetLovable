@@ -1,0 +1,170 @@
+<view class="app {{dark ? 'theme-dark' : ''}}">
+  <image class="app-bg" src="{{bg}}" mode="aspectFill" />
+
+  <view class="wrap">
+
+    <!-- ============ 肯定语区 ============ -->
+    <view class="glass card">
+      <view class="row-between">
+        <text class="serif t-h2">肯定语</text>
+        <view class="btn btn-ghost btn-mini" hover-class="pressed" bindtap="openTagModal">+ 标签</view>
+      </view>
+
+      <!-- 标签页签 -->
+      <scroll-view scroll-x class="chip-row mt20">
+        <block wx:for="{{defaultTags}}" wx:key="*this">
+          <view class="chip {{curTag === item ? 'chip-on' : ''}}" data-tag="{{item}}" bindtap="tagTap">{{item}}</view>
+        </block>
+        <block wx:for="{{customTags}}" wx:key="*this">
+          <view class="chip {{curTag === item ? 'chip-on' : ''}}" data-tag="{{item}}" bindtap="tagTap">{{item}} ✦</view>
+        </block>
+      </scroll-view>
+
+      <!-- 添加 -->
+      <view class="row mt20" style="gap:14rpx">
+        <input
+          class="input input-box flex-1"
+          placeholder="写下要默念的肯定语…"
+          placeholder-class="input-placeholder"
+          value="{{newAffText}}"
+          confirm-type="done"
+          bindinput="onAffInput"
+          bindconfirm="affAdd"
+        />
+        <view class="btn btn-primary" hover-class="pressed" bindtap="affAdd">添加</view>
+      </view>
+
+      <!-- 列表 -->
+      <view wx:if="{{affs.length}}" class="stack mt20">
+        <view class="row-item" wx:for="{{affs}}" wx:key="id">
+          <view class="flex-1">
+            <view class="t-md">{{item.text}}</view>
+            <view class="t-xs t-mut mt4">#{{item.tag}} · 累计 {{item.count}}</view>
+          </view>
+          <view class="btn btn-ghost btn-mini" data-id="{{item.id}}" hover-class="pressed" bindtap="affOpenEdit">✎</view>
+        </view>
+      </view>
+      <view wx:else class="empty mt20">「{{curTag}}」标签下还没有肯定语</view>
+    </view>
+
+    <!-- ============ 目标列表区 ============ -->
+    <view class="glass card mt20">
+      <view class="row-between">
+        <text class="serif t-h2">目标列表</text>
+        <text class="t-xs t-mut2">{{goalDone.length}}/{{goalActive.length + goalDone.length}} 已完成</text>
+      </view>
+      <view class="row mt20" style="gap:14rpx">
+        <input
+          class="input input-box flex-1"
+          placeholder="写下一个想实现的愿望…"
+          placeholder-class="input-placeholder"
+          value="{{addInput}}"
+          confirm-type="done"
+          bindinput="onGoalInput"
+          bindconfirm="goalAdd"
+        />
+        <view class="btn btn-primary" hover-class="pressed" bindtap="goalAdd">写下</view>
+      </view>
+
+      <!-- 进行中 -->
+      <view wx:if="{{goalActive.length}}" class="stack mt20">
+        <view class="row-item" wx:for="{{goalActive}}" wx:key="id">
+          <view class="goal-check" data-id="{{item.id}}" hover-class="pressed" bindtap="goalToggle">◯</view>
+          <view class="flex-1 t-md">{{item.text}}</view>
+          <view class="row" style="gap:6rpx">
+            <view class="btn btn-ghost btn-mini" style="padding:6rpx 14rpx" data-id="{{item.id}}" bindtap="goalUp">▲</view>
+            <view class="btn btn-ghost btn-mini" style="padding:6rpx 14rpx" data-id="{{item.id}}" bindtap="goalDown">▼</view>
+            <view class="btn btn-ghost btn-mini" style="padding:6rpx 14rpx" data-id="{{item.id}}" bindtap="goalDel">🗑</view>
+          </view>
+        </view>
+      </view>
+      <view wx:else class="empty mt20">还没有目标，写下第一个吧</view>
+
+      <!-- 已完成 -->
+      <block wx:if="{{goalDone.length}}">
+        <view class="row-between mt24">
+          <text class="t-xs t-mut">已完成</text>
+        </view>
+        <view class="stack mt12">
+          <view class="row-item" wx:for="{{goalDone}}" wx:key="id" style="opacity:.75">
+            <view class="goal-check done" data-id="{{item.id}}" hover-class="pressed" bindtap="goalToggle">✓</view>
+            <view class="flex-1 t-md line-through">{{item.text}}</view>
+            <view class="btn btn-ghost btn-mini" style="padding:6rpx 14rpx" data-id="{{item.id}}" bindtap="goalDel">🗑</view>
+          </view>
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <!-- ============ 标签弹层 ============ -->
+  <view class="overlay-mask" wx:if="{{tagModalVisible}}" bindtap="closeTagModal">
+    <view class="dialog" catchtap="noop">
+      <view class="dialog-close" bindtap="closeTagModal">✕</view>
+      <view class="center t-h2">标签管理</view>
+      <view class="t-xs t-mut mt8 center">可增加自定义标签，用于给肯定语分组</view>
+
+      <view class="row mt24" style="gap:14rpx">
+        <input
+          class="input input-box flex-1"
+          placeholder="新标签名称…"
+          placeholder-class="input-placeholder"
+          value="{{newTagText}}"
+          bindinput="onTagInput"
+          bindconfirm="addCustomTag"
+        />
+        <view class="btn btn-primary" hover-class="pressed" bindtap="addCustomTag">添加</view>
+      </view>
+
+      <view class="stack mt24" wx:if="{{customTags.length}}">
+        <view class="row-item" wx:for="{{customTags}}" wx:key="*this">
+          <text class="flex-1 t-md">✦ {{item}}</text>
+          <view class="btn btn-ghost btn-mini" style="color:#d9534f" data-tag="{{item}}" bindtap="delCustomTag">删除</view>
+        </view>
+      </view>
+      <view wx:else class="empty">暂无自定义标签</view>
+    </view>
+  </view>
+
+  <!-- ============ 编辑肯定语 ============ -->
+  <view class="overlay-mask" wx:if="{{editVisible}}" bindtap="closeEdit">
+    <view class="dialog" catchtap="noop" wx:if="{{editAff}}">
+      <view class="dialog-close" bindtap="closeEdit">✕</view>
+      <view class="center t-h2">编辑肯定语</view>
+
+      <view class="t-xs t-mut mt20 mb8">当前累计计数</view>
+      <input
+        class="input input-box"
+        type="number"
+        value="{{editCountText}}"
+        bindinput="onEditCount"
+      />
+
+      <view class="t-xs t-mut mt20 mb8">移动到标签</view>
+      <scroll-view scroll-x class="chip-row">
+        <block wx:for="{{editTags}}" wx:key="*this">
+          <view
+            class="chip {{editAff.tag === item ? 'chip-on' : ''}}"
+            data-tag="{{item}}"
+            bindtap="editTagTap"
+          >{{item}}</view>
+        </block>
+      </scroll-view>
+
+      <view class="t-sm t-mut2 mt20" style="word-break:break-all">“{{editAff.text}}”</view>
+
+      <view class="row mt24" style="gap:16rpx">
+        <view class="btn btn-ghost flex-1" style="color:#d9534f" hover-class="pressed" bindtap="editDelete">删除</view>
+        <view class="btn btn-primary flex-1" hover-class="pressed" bindtap="editSave">保存</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 目标达成庆祝 ============ -->
+  <view class="center celebrate-pop" style="position:fixed;top:30%;left:0;right:0;z-index:90;pointer-events:none" wx:if="{{celebrating}}">
+    <view class="glass-strong" style="display:inline-block;border-radius:36rpx;padding:36rpx 48rpx">
+      <view style="font-size:80rpx">🌟</view>
+      <view class="serif t-h1 mt12">目标达成</view>
+      <view class="t-sm t-mut mt8">{{celebrating}}</view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,31 @@
+.tile {
+  min-height: 180rpx;
+  display: flex;
+  flex-direction: column;
+}
+.tile-icon {
+  font-size: 52rpx;
+}
+.wechat-btn {
+  border-radius: 32rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  background: var(--glass-strong);
+  border: 2rpx solid var(--border);
+  box-shadow: var(--shadow-strong);
+}
+.wechat-badge {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 18rpx;
+  background: #07c160;
+  color: #fff;
+  font-size: 22rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6rpx 16rpx rgba(7, 193, 96, 0.35);
+  flex: none;
+}

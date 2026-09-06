@@ -1,0 +1,279 @@
+<view class="app {{dark ? 'theme-dark' : ''}}">
+  <image class="app-bg" src="{{bg}}" mode="aspectFill" />
+
+  <view class="wrap">
+
+    <!-- ============ 顶部卡：入口 ============ -->
+    <view class="glass card">
+      <view class="row-between">
+        <text class="serif t-title">设置</text>
+        <text class="t-xs t-mut2">外观 · 专注 · 呼吸 · 数据</text>
+      </view>
+      <view class="row mt24" style="gap:14rpx">
+        <view class="row-item flex-1" hover-class="pressed" bindtap="openGuide">
+          <text class="t-md flex-1">使用指南</text>
+          <text class="t-mut2">›</text>
+        </view>
+        <view class="row-item flex-1" hover-class="pressed" bindtap="openLog">
+          <text class="t-md flex-1">更新日志</text>
+          <text class="t-mut2">›</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- ============ 外观 ============ -->
+    <view class="glass card mt20">
+      <text class="group-title">外观</text>
+
+      <view class="t-sm t-mut mb12">主题模式</view>
+      <view class="seg-row">
+        <view class="seg {{theme === 'light' ? 'seg-on' : ''}}" data-t="light" bindtap="themeTap">日间</view>
+        <view class="seg {{theme === 'dark' ? 'seg-on' : ''}}" data-t="dark" bindtap="themeTap">夜间</view>
+      </view>
+
+      <view class="t-sm t-mut mt32 mb12">背景图片</view>
+      <view class="btn-row">
+        <view class="btn btn-ghost flex-1" hover-class="pressed" bindtap="pickBg">上传背景图</view>
+        <view class="btn btn-ghost flex-1" hover-class="pressed" bindtap="resetBg">恢复默认海浪</view>
+      </view>
+      <view class="t-xs t-mut2 mt12" wx:if="{{customBg}}">当前已使用自定义背景，仅保存在本机</view>
+      <view class="t-xs t-mut2 mt4" wx:else>长按 / 选择图片作为专注背景，可随时恢复</view>
+    </view>
+
+    <!-- ============ 专注页面 ============ -->
+    <view class="glass card mt20">
+      <text class="group-title">专注页面</text>
+
+      <!-- 肯定语页面 -->
+      <text class="sub-label">肯定语页面</text>
+
+      <view class="t-sm t-mut mt20 mb12">计时模式</view>
+      <view class="seg-row">
+        <view class="seg {{affirmTimerMode === 'countdown' ? 'seg-on' : ''}}" data-field="affirmTimerMode" data-value="countdown" bindtap="segTap">倒计时</view>
+        <view class="seg {{affirmTimerMode === 'stopwatch' ? 'seg-on' : ''}}" data-field="affirmTimerMode" data-value="stopwatch" bindtap="segTap">正计时（秒表）</view>
+      </view>
+
+      <view class="switch-row">
+        <text class="label">计数器音效提示</text>
+        <switch checked="{{sound}}" color="#07c160" data-field="sound" bindchange="onSwitch" />
+      </view>
+      <view class="switch-row">
+        <text class="label">显示计数大圆环</text>
+        <switch checked="{{showCounter}}" color="#07c160" data-field="showCounter" bindchange="onSwitch" />
+      </view>
+      <view class="switch-row">
+        <text class="label">启用自动计数功能</text>
+        <switch checked="{{autoCountEnabled}}" color="#07c160" data-field="autoCountEnabled" bindchange="onSwitch" />
+      </view>
+
+      <view class="glass-inset mt8" style="padding:20rpx 24rpx" wx:if="{{autoCountEnabled}}">
+        <view class="row-between mb8">
+          <text class="t-sm">自动计数间隔</text>
+          <text class="t-sm mono">{{autoCountInterval}} 秒 / 次</text>
+        </view>
+        <slider
+          min="1"
+          max="60"
+          step="1"
+          value="{{autoCountInterval}}"
+          activeColor="#4a79b8"
+          block-size="22"
+          data-field="autoCountInterval"
+          bindchange="onSlider"
+        />
+        <view class="t-xs t-mut2">开启计时后按固定间隔自动 +1，可与手动计数叠加</view>
+      </view>
+
+      <view class="switch-row">
+        <text class="label">显示「重置计数」按钮</text>
+        <switch checked="{{resetCounterEnabled}}" color="#07c160" data-field="resetCounterEnabled" bindchange="onSwitch" />
+      </view>
+
+      <view class="t-sm t-mut mt24 mb12">计数器显示</view>
+      <view class="seg-row">
+        <view class="seg {{counterMode === 'today' ? 'seg-on' : ''}}" data-field="counterMode" data-value="today" bindtap="segTap">今日计数</view>
+        <view class="seg {{counterMode === 'total' ? 'seg-on' : ''}}" data-field="counterMode" data-value="total" bindtap="segTap">累计计数</view>
+      </view>
+
+      <!-- 呼吸调整页面 -->
+      <view class="divider"></view>
+      <text class="sub-label">呼吸调整页面</text>
+
+      <view class="t-sm t-mut mt20 mb12">计时模式</view>
+      <view class="seg-row">
+        <view class="seg {{breathTimerMode === 'countdown' ? 'seg-on' : ''}}" data-field="breathTimerMode" data-value="countdown" bindtap="segTap">倒计时</view>
+        <view class="seg {{breathTimerMode === 'stopwatch' ? 'seg-on' : ''}}" data-field="breathTimerMode" data-value="stopwatch" bindtap="segTap">正计时（秒表）</view>
+      </view>
+
+      <view class="switch-row">
+        <text class="label">显示「呼吸调整」页签</text>
+        <switch checked="{{showBreath}}" color="#07c160" data-field="showBreath" bindchange="onSwitch" />
+      </view>
+
+      <view class="t-sm t-mut mt24 mb12">呼吸节奏</view>
+      <view class="chip-wrap">
+        <view class="chip {{breathMode === 'box' ? 'chip-on' : ''}}" data-mode="box" bindtap="breathModeTap">箱式 4-4-4-4</view>
+        <view class="chip {{breathMode === '478' ? 'chip-on' : ''}}" data-mode="478" bindtap="breathModeTap">4-7-8</view>
+        <view class="chip {{breathMode === 'custom' ? 'chip-on' : ''}}" data-mode="custom" bindtap="breathModeTap">自定义</view>
+        <view class="chip {{breathMode === 'off' ? 'chip-on' : ''}}" data-mode="off" bindtap="breathModeTap">关闭</view>
+      </view>
+
+      <view class="breath-grid" wx:if="{{breathMode === 'custom'}}">
+        <view class="breath-cell">
+          <text class="t-sm t-mut">吸</text>
+          <input type="number" value="{{inhale}}" data-field="inhale" bindinput="customNum" />
+        </view>
+        <view class="breath-cell">
+          <text class="t-sm t-mut">屏</text>
+          <input type="number" value="{{hold1}}" data-field="hold1" bindinput="customNum" />
+        </view>
+        <view class="breath-cell">
+          <text class="t-sm t-mut">呼</text>
+          <input type="number" value="{{exhale}}" data-field="exhale" bindinput="customNum" />
+        </view>
+        <view class="breath-cell">
+          <text class="t-sm t-mut">屏</text>
+          <input type="number" value="{{hold2}}" data-field="hold2" bindinput="customNum" />
+        </view>
+      </view>
+      <view class="t-xs t-mut2 mt12" wx:else>关闭后将不显示呼吸引导，仅保留计时</view>
+    </view>
+
+    <!-- ============ 数据 ============ -->
+    <view class="glass card mt20">
+      <text class="group-title">数据</text>
+
+      <view class="btn-row">
+        <view class="btn btn-ghost flex-1" hover-class="pressed" bindtap="doExport">导出到剪贴板</view>
+        <view class="btn btn-ghost flex-1" hover-class="pressed" bindtap="openImport">导入数据</view>
+      </view>
+      <view class="btn-row mt16">
+        <view class="btn btn-ghost flex-1 danger-text" hover-class="pressed" bindtap="openReset">重置全部数据</view>
+      </view>
+      <view class="t-xs t-mut2 mt16" style="line-height:1.7">
+        所有数据仅保存在当前设备本地，从不上传、不分享。
+        如需转移设备：先「导出」复制 JSON，再到新设备「导入」粘贴即可。
+      </view>
+    </view>
+
+    <!-- 声明 -->
+    <view class="t-xs t-mut2 center mt32" style="line-height:1.8">
+      GG RESET 小程序版 · 所有功能免费
+      <br />本工具仅供日常正念打卡与习惯记录使用，不提供任何专业建议。
+      <br />数据仅储存在本机，不收集、不上传、不分享任何信息。
+    </view>
+  </view>
+
+  <!-- ============ 使用指南弹层 ============ -->
+  <view class="overlay-mask" wx:if="{{guideVisible}}" bindtap="closeGuide">
+    <view class="dialog dialog-scroll" catchtap="noop">
+      <view class="dialog-close" bindtap="closeGuide">✕</view>
+      <text class="serif t-h1">GG RESET · 使用指南</text>
+      <view class="t-xs t-mut mt8">关于计时计数、呼吸调整与数据备份的说明</view>
+      <scroll-view scroll-y class="dialog-body">
+        <view class="guide-sec">
+          <text class="guide-h">欢迎</text>
+          <text class="guide-p">欢迎来到 GG RESET。在这里你可以通过计时、计数和呼吸调整，帮助自己放松下来、保持专注。</text>
+        </view>
+        <view class="guide-sec">
+          <text class="guide-h">肯定语 · 计时计数</text>
+          <text class="guide-p">进入「目标列表」页面增加或删除主题标签（在专注页面和数据中心都会用到），在标签下添加肯定语，并可添加想要实现的愿望。</text>
+          <text class="guide-li">· 返回主页进入「进入专注」，选择主题或肯定语，即可开始计时与计数。</text>
+          <text class="guide-li">· 右上角「设置」里可切换正计时 / 倒计时、开启自动计数、设置计数间隔、开启音效提醒。</text>
+          <text class="guide-li">· 专注页底部可直接播放或关闭白噪音（海浪 / 篝火 / 雨声）。</text>
+          <text class="guide-li">· 计数器可设为「今日计数」或「累计计数」，开启「重置计数」后可在计数圆环上方清空今日或累计次数。</text>
+        </view>
+        <view class="guide-sec">
+          <text class="guide-h">呼吸调整 · 放松身心</text>
+          <text class="guide-p">在「进入专注」顶部切换到「呼吸调整」，开启计时后跟随呼吸球完成呼吸放松。</text>
+          <text class="guide-li">· 在设置里可自定义呼吸节奏（箱式 / 4-7-8 / 自定义 / 关闭）与计时模式。</text>
+          <text class="guide-li">· 呼吸调整与计时器绑定：开启计时后呼吸球自动开始。</text>
+        </view>
+        <view class="guide-sec">
+          <text class="guide-h">防丢失</text>
+          <text class="guide-p">中途切换后台、息屏或关闭小程序后重新打开，计时和计数都会自动对齐真实时间，不影响使用和数据记录。选择正计时并开启自动计数时，请记得结束时回到应用关闭计时。</text>
+        </view>
+        <view class="guide-sec">
+          <text class="guide-h">数据备份与转移</text>
+          <text class="guide-p">在「数据」里选择「导出到剪贴板」即可完成备份。转移新设备时，把导出的 JSON 粘贴到新设备的「导入数据」即可恢复。</text>
+          <text class="guide-li">· 请勿清除小程序本地数据，否则可能导致 GG RESET 数据丢失。</text>
+        </view>
+        <view class="guide-sec">
+          <text class="guide-h">声明</text>
+          <text class="guide-p">GG RESET 所有功能均免费。本工具仅供日常正念打卡与习惯记录使用，不提供任何专业建议。所有数据仅储存在本机，不收集、不上传、不分享。</text>
+        </view>
+      </scroll-view>
+      <view class="btn btn-primary btn-block mt20" hover-class="pressed" bindtap="closeGuide">知道了</view>
+    </view>
+  </view>
+
+  <!-- ============ 更新日志弹层 ============ -->
+  <view class="overlay-mask" wx:if="{{logVisible}}" bindtap="closeLog">
+    <view class="dialog" catchtap="noop">
+      <view class="dialog-close" bindtap="closeLog">✕</view>
+      <text class="serif t-h1">更新日志</text>
+      <view class="stack mt24">
+        <view>
+          <text class="log-date">2027 / 7 / 6</text>
+          <view class="t-sm t-mut">更新账号登录系统，支持微信一键快捷登录与本机 OpenID。</view>
+        </view>
+        <view>
+          <text class="log-date">2026 / 7</text>
+          <view class="t-sm t-mut">
+            更新肯定语数值手动调整、修改标签、重置计数器计数等功能，优化呼吸球颜色对比，修复计数器音效与白噪音播放的 Bug。
+          </view>
+        </view>
+      </view>
+      <view class="btn btn-primary btn-block mt24" hover-class="pressed" bindtap="closeLog">知道了</view>
+    </view>
+  </view>
+
+  <!-- ============ 导入弹层 ============ -->
+  <view class="overlay-mask" wx:if="{{importVisible}}" bindtap="closeImport">
+    <view class="dialog" catchtap="noop">
+      <view class="dialog-close" bindtap="closeImport">✕</view>
+      <text class="t-h1">导入数据</text>
+      <view class="t-xs t-mut mt8" style="line-height:1.7">
+        先将另一台设备导出的 JSON 复制到剪贴板，再粘贴到下方输入框。
+        <br />导入将覆盖当前本地同名数据，请谨慎操作。
+      </view>
+      <textarea
+        class="ta"
+        value="{{importText}}"
+        bindinput="onImportInput"
+        placeholder="在此粘贴 JSON 数据…"
+        placeholder-class="ta-placeholder"
+      />
+      <view class="btn-row mt20">
+        <view class="btn btn-ghost flex-1" hover-class="pressed" bindtap="closeImport">取消</view>
+        <view class="btn btn-primary flex-1" hover-class="pressed" bindtap="doImport">导入</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 重置弹层 ============ -->
+  <view class="overlay-mask" wx:if="{{resetVisible}}" bindtap="closeReset">
+    <view class="dialog" catchtap="noop">
+      <view class="dialog-close" bindtap="closeReset">✕</view>
+      <text class="t-h1">重置全部数据？</text>
+      <view class="t-xs t-mut mt8" style="line-height:1.7">
+        此操作不可恢复。所有肯定语、目标、标签、专注记录与设置都会被清空。
+        <br />建议先「导出到剪贴板」完成备份。
+      </view>
+      <input
+        class="input input-box mono mt20"
+        value="{{resetText}}"
+        bindinput="onResetInput"
+        placeholder="输入 reset 确认重置"
+        placeholder-class="input-placeholder"
+      />
+      <view class="t-xs mt8 {{resetOk ? 'ok' : 't-mut2'}}">
+        {{resetOk ? '已确认，可执行重置' : '请输入 reset 以解锁重置按钮'}}
+      </view>
+      <view class="btn-row mt24">
+        <view class="btn btn-ghost flex-1" hover-class="pressed" bindtap="closeReset">取消</view>
+        <view class="btn btn-danger flex-1 {{resetOk ? '' : 'disabled'}}" hover-class="{{resetOk ? 'pressed' : ''}}" bindtap="doReset">确认重置</view>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,20 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/focus/focus",
+    "pages/manifest/manifest",
+    "pages/data/data",
+    "pages/settings/settings"
+  ],
+  "window": {
+    "navigationBarTitleText": "GG RESET",
+    "navigationBarBackgroundColor": "#e9f1f8",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#e9f1f8",
+    "backgroundColorTop": "#e9f1f8",
+    "backgroundColorBottom": "#e9f1f8"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

@@ -3,306 +3,92 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
-import { getAuth, getDB, normalizePhone } from "./cloudbase";
-import { storage } from "./storage";
+import {
+  getDeviceOpenId,
+  getSessionOpenId,
+  mockWxLogin,
+  startSession,
+  clearSession,
+} from "./wx-login";
+import { userDataGateway } from "./sync-gateway";
 
 export type AuthUser = {
-  uid: string;
-  phone?: string;
-  username?: string;
+  /** 本机模拟的 OpenID，等价于微信小程序里的 openid：唯一且保持不变 */
+  openid: string;
+  /** 展示名 */
+  nickname: string;
+  /** 本次登录是否为首次创建（新访客自动建号） */
+  isNew: boolean;
+  /** 最近一次登录时间戳 */
+  loggedInAt: number;
 };
 
-// Handle for a pending OTP challenge — returned by signInWithOtp and used to
-// finish the login by verifying the code.
-export type OtpHandle = { verifyOtp: (p: { token: string }) => Promise<any> };
-
-// Handle returned by reauthenticate() after the verification code is sent to
-// the bound phone — call it with the code + new password to finish the update.
-export type PasswordSetupHandle = (p: { nonce: string; password: string }) => Promise<any>;
-
 type Ctx = {
+  /** 启动时会话恢复是否已完成（避免首屏闪现“未登录”按钮） */
   ready: boolean;
   user: AuthUser | null;
-  syncing: boolean;
-  lastSyncedAt: number | null;
-  sendSmsCode: (phone: string) => Promise<OtpHandle>;
-  loginWithSms: (handle: OtpHandle, code: string) => Promise<void>;
-  loginWithPassword: (account: string, password: string) => Promise<void>;
-  setUsername: (username: string) => Promise<void>;
-  /** 向已绑定手机号发送验证码，返回「确认设置密码」句柄 */
-  sendPasswordCode: () => Promise<PasswordSetupHandle>;
-  finishPasswordSetup: (
-    handle: PasswordSetupHandle,
-    code: string,
-    newPassword: string,
-  ) => Promise<void>;
+  /** 数据同步网关信息（当前阶段为 local 本机模式，见 sync-gateway.ts） */
+  sync: { name: string; remote: boolean };
+  /**
+   * 微信一键快捷登录：
+   *  - 已在本机存过标识 → 直接复用并静默完成身份校验（秒登）；
+   *  - 全新访客 → 自动生成本机 OpenID 并建号。
+   * 全程前端/本地凭证完成，不请求任何外部短信/授权 API。
+   */
+  quickLogin: () => Promise<AuthUser>;
+  /** 退出登录：仅清除登录会话，保留本机 OpenID，之后仍可一键恢复到同一账号 */
   signOut: () => Promise<void>;
-  pushNow: () => Promise<void>;
 };
 
 const AuthCtx = createContext<Ctx | null>(null);
 
-const COLLECTION = "user_data";
+export const DISPLAY_NAME = "微信用户";
 
-function pack() {
+function buildUser(openid: string, isNew: boolean): AuthUser {
   return {
-    affirmations: JSON.parse(
-      localStorage.getItem(storage.KEYS.affirmations) || "[]",
-    ),
-    goals: JSON.parse(localStorage.getItem(storage.KEYS.goals) || "[]"),
-    logs: JSON.parse(localStorage.getItem(storage.KEYS.logs) || "[]"),
-    settings: JSON.parse(localStorage.getItem(storage.KEYS.settings) || "null"),
-    tags: JSON.parse(localStorage.getItem(storage.KEYS.tags) || "null"),
-    updatedAt: Date.now(),
+    openid,
+    nickname: DISPLAY_NAME,
+    isNew,
+    loggedInAt: Date.now(),
   };
-}
-
-function applyRemote(data: Record<string, unknown>) {
-  const map: Record<string, string> = {
-    affirmations: storage.KEYS.affirmations,
-    goals: storage.KEYS.goals,
-    logs: storage.KEYS.logs,
-    settings: storage.KEYS.settings,
-    tags: storage.KEYS.tags,
-  };
-  for (const [k, key] of Object.entries(map)) {
-    const v = data[k];
-    if (v !== undefined && v !== null) {
-      localStorage.setItem(key, JSON.stringify(v));
-    }
-  }
-}
-
-function hashPayload(p: unknown): string {
-  try {
-    return JSON.stringify(p);
-  } catch {
-    return String(Math.random());
-  }
-}
-
-async function readCurrentUser(): Promise<AuthUser | null> {
-  const auth = getAuth();
-  try {
-    // Prefer v3 getSession (returns null if signed out).
-    if (typeof auth.getSession === "function") {
-      const res = await auth.getSession();
-      const u = res?.data?.user || res?.user;
-      if (u) {
-        return {
-          uid: u.uid || u.id || "unknown",
-          phone: u.phone || u.phone_number || u.phoneNumber,
-          username: u.username || u.name,
-        };
-      }
-    }
-    // Fallback: v2 hasLoginState.
-    if (typeof auth.hasLoginState === "function") {
-      const state = await auth.hasLoginState();
-      if (state?.user) {
-        return {
-          uid: state.user.uid,
-          phone: state.user.phone_number || state.user.phoneNumber,
-          username: state.user.username || state.user.name,
-        };
-      }
-    }
-    if (auth.currentUser) {
-      return {
-        uid: auth.currentUser.uid,
-        phone: auth.currentUser.phoneNumber || auth.currentUser.phone_number,
-        username: auth.currentUser.username || auth.currentUser.name,
-      };
-    }
-  } catch (e) {
-    console.warn("[auth] readCurrentUser", e);
-  }
-  return null;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
-  const lastHash = useRef<string>("");
-  const userRef = useRef<AuthUser | null>(null);
-  userRef.current = user;
 
-  const pushCore = useCallback(async (uid: string) => {
-    const payload = pack();
-    const h = hashPayload(payload);
-    if (h === lastHash.current) return;
-    const db = getDB();
-    try {
-      await db.collection(COLLECTION).doc(uid).set(payload);
-    } catch {
-      try {
-        await db.collection(COLLECTION).add({ _id: uid, ...payload });
-      } catch (e2) {
-        console.warn("[auth] push failed", e2);
-        return;
-      }
-    }
-    lastHash.current = h;
-    setLastSyncedAt(Date.now());
-  }, []);
-
-  const pullFromCloud = useCallback(
-    async (uid: string) => {
-      try {
-        setSyncing(true);
-        const db = getDB();
-        const res = await db.collection(COLLECTION).doc(uid).get();
-        const doc = res?.data?.[0] as Record<string, unknown> | undefined;
-        if (doc) {
-          const localPack = pack();
-          const cloudUpdatedAt = Number(doc.updatedAt || 0);
-          const localUpdatedAt = Number(localPack.updatedAt || 0);
-          const localHasData =
-            (localPack.affirmations as unknown[]).length > 0 ||
-            (localPack.logs as unknown[]).length > 0 ||
-            (localPack.goals as unknown[]).length > 0;
-          if (!localHasData || cloudUpdatedAt >= localUpdatedAt) {
-            applyRemote(doc);
-            lastHash.current = hashPayload(pack());
-            setTimeout(() => window.location.reload(), 60);
-            return;
-          }
-        }
-        await pushCore(uid);
-      } catch (e) {
-        console.warn("[auth] pull failed", e);
-      } finally {
-        setSyncing(false);
-      }
-    },
-    [pushCore],
-  );
-
-  const pushNow = useCallback(async () => {
-    const u = userRef.current;
-    if (!u) return;
-    setSyncing(true);
-    try {
-      lastHash.current = ""; // force
-      await pushCore(u.uid);
-    } finally {
-      setSyncing(false);
-    }
-  }, [pushCore]);
-
-  // Boot: restore session.
+  // 启动：若本机已存 OpenID 且存在有效会话 → 静默恢复登录（对标 wx 自动登录）。
   useEffect(() => {
     if (typeof window === "undefined") return;
-    (async () => {
-      const u = await readCurrentUser();
-      if (u) {
-        setUser(u);
-        await pullFromCloud(u.uid);
-      }
-      setReady(true);
-    })();
-  }, [pullFromCloud]);
-
-  // Incremental sync loop.
-  useEffect(() => {
-    if (!user) return;
-    const id = setInterval(() => {
-      const payload = pack();
-      const h = hashPayload(payload);
-      if (h !== lastHash.current) {
-        pushCore(user.uid).catch(() => {});
-      }
-    }, 4000);
-    return () => clearInterval(id);
-  }, [user, pushCore]);
-
-  const sendSmsCode = useCallback(async (phone: string): Promise<OtpHandle> => {
-    const auth = getAuth();
-    const phoneNorm = normalizePhone(phone);
-    const res = await auth.signInWithOtp({ phone: phoneNorm });
-    if (res?.error) throw new Error(res.error.message || "发送验证码失败");
-    const handle = res?.data;
-    if (!handle?.verifyOtp) throw new Error("SDK 未返回验证句柄");
-    return handle as OtpHandle;
-  }, []);
-
-  const loginWithSms = useCallback(
-    async (handle: OtpHandle, code: string) => {
-      const res = await handle.verifyOtp({ token: code });
-      if (res?.error) throw new Error(res.error.message || "验证码错误");
-      const u = await readCurrentUser();
-      if (u) {
-        setUser(u);
-        await pullFromCloud(u.uid);
-      }
-    },
-    [pullFromCloud],
-  );
-
-  const loginWithPassword = useCallback(
-    async (account: string, password: string) => {
-      const auth = getAuth();
-      // 11 位数字按“手机号 + 密码”登录，其它输入按“用户名 + 密码”登录
-      const isPhone = /^\d{11}$/.test(account);
-      const res = isPhone
-        ? await auth.signInWithPassword({ phone: account, password })
-        : await auth.signInWithPassword({ username: account, password });
-      if (res?.error) throw new Error(res.error.message || "登录失败");
-      const u = await readCurrentUser();
-      if (u) {
-        setUser(u);
-        await pullFromCloud(u.uid);
-      }
-    },
-    [pullFromCloud],
-  );
-
-  const setUsername = useCallback(async (username: string) => {
-    const auth = getAuth();
-    const res = await auth.updateUser({ username });
-    if (res?.error) throw new Error(res.error.message || "更新失败");
-    const u = await readCurrentUser();
-    if (u) setUser(u);
-  }, []);
-
-  const sendPasswordCode = useCallback(async (): Promise<PasswordSetupHandle> => {
-    const auth = getAuth();
-    // reauthenticate 会向当前账号绑定的手机号发送验证码，
-    // 返回的 updateUser 回调用于带验证码设置新密码
-    const res = await auth.reauthenticate();
-    if (res?.error) throw new Error(res.error.message || "发送验证码失败");
-    const updater = res?.data?.updateUser;
-    if (typeof updater !== "function") {
-      throw new Error("当前账号未绑定手机号，无法通过短信验证设置密码");
+    const openid = getDeviceOpenId();
+    const sessionOpenid = getSessionOpenId();
+    if (openid && sessionOpenid && openid === sessionOpenid) {
+      setUser(buildUser(openid, false));
     }
-    return updater as PasswordSetupHandle;
+    setReady(true);
   }, []);
 
-  const finishPasswordSetup = useCallback(
-    async (handle: PasswordSetupHandle, code: string, newPassword: string) => {
-      if (!/^\d{4,6}$/.test(code.trim())) throw new Error("请输入正确的验证码");
-      const res = await handle({ nonce: code.trim(), password: newPassword });
-      if (res?.error) throw new Error(res.error.message || "设置密码失败");
-    },
-    [],
-  );
+  const quickLogin = useCallback(async (): Promise<AuthUser> => {
+    // 模拟 wx.login：已有标识直接复用；新访客自动生成并保存。
+    const { openid, created } = mockWxLogin();
+    startSession(openid); // 维护本机登录态
 
-  const signOut = useCallback(async () => {
-    try {
-      const auth = getAuth();
-      await auth.signOut();
-    } catch (e) {
-      console.warn("signOut", e);
-    }
-    lastHash.current = "";
+    // 预留：数据同步 —— 接入远端网关后，可在此拉取 user_data/<openid>
+    // 并合并回本机（见 src/lib/sync-gateway.ts）：
+    //   const remote = await userDataGateway.fetch(openid);
+    //   if (remote) applyRemoteUserData(remote);
+
+    const u = buildUser(openid, created);
+    setUser(u); // 更新页面全局“已登录”状态
+    return u;
+  }, []);
+
+  const signOut = useCallback(async (): Promise<void> => {
+    clearSession(); // 仅清除会话；OpenID 保留，确保本机身份与数据不被误删
     setUser(null);
-    setTimeout(() => window.location.reload(), 100);
   }, []);
 
   return (
@@ -310,16 +96,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         ready,
         user,
-        syncing,
-        lastSyncedAt,
-        sendSmsCode,
-        loginWithSms,
-        loginWithPassword,
-        setUsername,
-        sendPasswordCode,
-        finishPasswordSetup,
+        sync: { name: userDataGateway.name, remote: userDataGateway.remote },
+        quickLogin,
         signOut,
-        pushNow,
       }}
     >
       {children}
