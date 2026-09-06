@@ -3,9 +3,10 @@
 
 import cloudbase from "@cloudbase/js-sdk";
 
-// CloudBase Env ID（云开发控制台 → 环境 → 环境ID）。
-// 可通过构建期环境变量 VITE_TCB_ENV 覆盖（见仓库根目录 .env.example），
-// 未配置时回退到下面的代码内默认值。
+// CloudBase Env ID（云开发控制台 → 环境 → 环境ID），
+// 下方代码内默认值即当前使用的环境：gg-reset-d1gb1eso5144bc964。
+// 若以后要切换到其它云开发环境，可新建 .env.local 并设置
+// VITE_TCB_ENV=<新环境ID> 来覆盖默认值（可选，不配置则用下面的默认值）。
 export const CLOUDBASE_ENV =
   (import.meta.env?.VITE_TCB_ENV as string | undefined)?.trim() ||
   "gg-reset-d1gb1eso5144bc964";
