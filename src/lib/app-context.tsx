@@ -26,16 +26,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     audioManager.syncSettings({
       soundEnabled: settings.sound,
-      whiteNoiseEnabled: settings.whiteNoiseEnabled,
       whiteNoiseTrack: settings.whiteNoise,
-      whiteNoiseVolume: settings.whiteNoiseVolume,
     });
-  }, [
-    settings.sound,
-    settings.whiteNoiseEnabled,
-    settings.whiteNoise,
-    settings.whiteNoiseVolume,
-  ]);
+  }, [settings.sound, settings.whiteNoise]);
 
   // First user gesture unlock (iOS requirement).
   useEffect(() => {

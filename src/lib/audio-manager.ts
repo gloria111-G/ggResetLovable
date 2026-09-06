@@ -5,8 +5,8 @@
  *   (1) Counter tick and white noise are independent — neither touches the other.
  *   (2) Every tick plays immediately and never queues while backgrounded
  *       (no burst on foreground return).
- *   (3) White noise plays iff `whiteNoiseEnabled && whiteNoiseTrack !== "off"`.
- *       Timer start / pause / end never touch white noise.
+ *   (3) White noise plays whenever `whiteNoiseTrack !== "off"`, regardless of
+ *       timer state. Timer start / pause / end never touch white noise.
  *
  * Settings only mutate manager state; the manager decides play/pause.
  */
@@ -19,16 +19,12 @@ import type { WhiteNoise } from "./storage";
 
 type State = {
   soundEnabled: boolean;
-  whiteNoiseEnabled: boolean;
   whiteNoiseTrack: WhiteNoise;
-  whiteNoiseVolume: number;
 };
 
 let state: State = {
   soundEnabled: false,
-  whiteNoiseEnabled: false,
   whiteNoiseTrack: "off",
-  whiteNoiseVolume: 0.5,
 };
 
 // ---------------------------------------------------------------------------
@@ -60,7 +56,7 @@ function ensureWnEl(): HTMLAudioElement | null {
 }
 
 function shouldPlayWN(): boolean {
-  return state.whiteNoiseEnabled && state.whiteNoiseTrack !== "off";
+  return state.whiteNoiseTrack !== "off";
 }
 
 /** Reconcile WN element with desired state. Idempotent, non-destructive:
@@ -68,7 +64,8 @@ function shouldPlayWN(): boolean {
 function reconcileWN() {
   const el = ensureWnEl();
   if (!el) return;
-  el.volume = Math.max(0, Math.min(1, state.whiteNoiseVolume));
+  // Volume stays at the element default (1.0) — users control loudness
+  // through their device / system volume.
 
   if (!shouldPlayWN()) {
     if (!el.paused) {
@@ -155,8 +152,7 @@ export const audioManager = {
   },
 
   /** First user gesture in the session. Unlocks the tick AudioContext
-   *  and — if WN should be playing — starts it. Never plays WN when
-   *  `whiteNoiseEnabled` is false or track is "off". */
+   *  and — if a white-noise track is selected — starts it. */
   unlock() {
     const c = getCtx();
     if (c && c.state === "suspended") c.resume().catch(() => {});
@@ -190,13 +186,6 @@ export const audioManager = {
   resume() {
     const c = getCtx();
     if (c && c.state === "suspended") c.resume().catch(() => {});
-    reconcileWN();
-  },
-
-  /** "恢复音效" button. Fresh user gesture recovers from iOS interruptions. */
-  posture() {
-    const c = getCtx();
-    if (c && c.state !== "running") c.resume().catch(() => {});
     reconcileWN();
   },
 };

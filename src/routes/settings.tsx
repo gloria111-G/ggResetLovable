@@ -304,44 +304,6 @@ function SettingsPage() {
               </div>
             )}
           </div>
-
-          {/* ---- 白噪音 ---- */}
-          <p className="text-xs opacity-60 mt-8 mb-2 tracking-widest">白噪音</p>
-
-          <Toggle
-            label="开启白噪音功能"
-            value={settings.whiteNoiseEnabled}
-            onChange={(v) =>
-              setSettings((s) => ({
-                ...s,
-                whiteNoiseEnabled: v,
-                // Turning the feature off also clears the current track
-                whiteNoise: v ? s.whiteNoise : "off",
-              }))
-            }
-          />
-          <p className="text-[11px] opacity-55 mt-1">
-            开启后可在「肯定语」和「呼吸调整」页面选择海浪 / 篝火 / 雨声。默认关闭。
-          </p>
-
-          {settings.whiteNoiseEnabled && (
-            <div className="mt-3">
-              <p className="text-xs opacity-70 mb-1">
-                音量 {Math.round(settings.whiteNoiseVolume * 100)}%
-              </p>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={settings.whiteNoiseVolume}
-                onChange={(e) =>
-                  setSettings((s) => ({ ...s, whiteNoiseVolume: Number(e.target.value) }))
-                }
-                className="w-full"
-              />
-            </div>
-          )}
         </GlassCard>
 
         {/* Data */}

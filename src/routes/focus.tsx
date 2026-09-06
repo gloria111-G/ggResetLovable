@@ -14,41 +14,13 @@ import {
   ACTIVE_SESSION_KEY_AFFIRM,
   ACTIVE_SESSION_KEY_BREATH,
 } from "@/lib/storage";
-import { Play, Pause, RotateCcw, Plus, Sparkles, Wind, Volume2 } from "lucide-react";
+import { Play, Pause, RotateCcw, Plus, Sparkles, Wind } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
-/**
- * Posture button — small tap target shown near the counter / breath ball
- * whenever the user has enabled counter sound or white noise. Tapping it
- * fires a fresh user gesture that resumes the AudioContext and re-primes
- * the white-noise <audio> element, recovering from iOS media interruptions
- * or background suspensions.
- */
-function PostureButton() {
-  const { settings } = useApp();
-  if (!settings.sound && !settings.whiteNoiseEnabled) return null;
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <button
-        type="button"
-        onClick={() => audioManager.posture()}
-        aria-label="恢复音效"
-        title="恢复音效"
-        className="glass glass-hover rounded-full size-9 flex items-center justify-center"
-      >
-        <Volume2 className="size-4" />
-      </button>
-      <p className="text-[11px] opacity-50">恢复音效</p>
-    </div>
-  );
-}
-
 /** Shared white-noise selector shown on affirm + breath focus pages.
- *  Only renders when the user has enabled the white-noise feature in settings.
- *  Both pages share the same `settings.whiteNoise` track state. */
+ *  Always visible; both pages share the same `settings.whiteNoise` track state. */
 function WhiteNoiseSelector() {
   const { settings, setSettings } = useApp();
-  if (!settings.whiteNoiseEnabled) return null;
   return (
     <GlassCard>
       <p className="text-xs tracking-widest opacity-50 text-center mb-3">白噪音</p>
@@ -69,27 +41,6 @@ function WhiteNoiseSelector() {
           </button>
         ))}
       </div>
-      {settings.whiteNoise !== "off" && (
-        <div className="mt-3">
-          <p className="text-xs opacity-70 mb-1 text-center">
-            音量 {Math.round(settings.whiteNoiseVolume * 100)}%
-          </p>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={settings.whiteNoiseVolume}
-            onChange={(e) =>
-              setSettings((s) => ({
-                ...s,
-                whiteNoiseVolume: Number(e.target.value),
-              }))
-            }
-            className="w-full"
-          />
-        </div>
-      )}
     </GlassCard>
   );
 }
@@ -553,27 +504,19 @@ function AffirmFocus() {
         </button>
 
         {settings.autoCountEnabled && (
-          <div className="mt-6 flex items-start justify-center gap-3 flex-wrap">
-            <div className="flex flex-col items-center gap-1">
-              <button
-                onClick={() => {
-                  if (!autoOn) lastAutoAtRef.current = Date.now();
-                  setAutoOn((v) => !v);
-                }}
-                className={`rounded-full px-4 py-2 text-xs ${selCls(autoOn)}`}
-              >
-                自动计数：{autoOn ? "开启" : "暂停"}
-              </button>
-              <p className="text-[11px] opacity-50">
-                间隔 {settings.autoCountInterval} 秒（可在设置中调整）
-              </p>
-            </div>
-            <PostureButton />
-          </div>
-        )}
-        {!settings.autoCountEnabled && (
-          <div className="mt-6 flex justify-center">
-            <PostureButton />
+          <div className="mt-6 flex flex-col items-center gap-1">
+            <button
+              onClick={() => {
+                if (!autoOn) lastAutoAtRef.current = Date.now();
+                setAutoOn((v) => !v);
+              }}
+              className={`rounded-full px-4 py-2 text-xs ${selCls(autoOn)}`}
+            >
+              自动计数：{autoOn ? "开启" : "暂停"}
+            </button>
+            <p className="text-[11px] opacity-50">
+              间隔 {settings.autoCountInterval} 秒（可在设置中调整）
+            </p>
           </div>
         )}
       </GlassCard>
@@ -920,9 +863,6 @@ function BreathFocus() {
       {/* Breath ball */}
       <GlassCard className="py-10">
         <BreathBall running={running} />
-        <div className="mt-4 flex justify-center">
-          <PostureButton />
-        </div>
         <p className="text-center text-xs opacity-70 mt-4">
           当前呼吸模式：<span className="font-medium">{breathLabel(settings)}</span>
           <span className="opacity-50">（可在设置中调整）</span>
