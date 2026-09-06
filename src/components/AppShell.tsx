@@ -91,10 +91,9 @@ export function AppShell({
 export function Disclaimer() {
   return (
     <footer className="px-6 py-6 text-center text-[11px] opacity-60 max-w-2xl mx-auto leading-relaxed">
-      GG reset 仅提供正念放松的平台，不替代任何医疗、心理或专业建议。
+      本工具仅供日常正念打卡与习惯记录使用，不提供任何专业建议。
       <br className="hidden md:block" />
       所有数据仅存储于您本地浏览器，我们不收集、不上传、不分享任何个人信息。
-      如有身心不适，请及时联系专业人士。
     </footer>
   );
 }

@@ -709,33 +709,33 @@ function ResetCounterButton({
 
 const TIPS = [
   {
-    title: "迷走神经的温柔启动",
-    body: "用冰水轻拍面颊或含一口冰水，能快速激活迷走神经，帮助身体从紧绷切回松弛模式。",
+    title: "放松体验的温柔启动",
+    body: "用冰水轻拍面颊或含一口冰水，能快速带来清凉的放松体验，帮助身体从紧绷回到松弛状态。",
   },
   {
     title: "4-7-8 呼吸",
-    body: "吸气 4 秒、屏息 7 秒、呼气 8 秒。重复 4 组，副交感神经会接管，焦虑感会自然下降。",
+    body: "吸气 4 秒、屏息 7 秒、呼气 8 秒。重复 4 组，呼吸节奏放慢后，身体会进入深层放松，紧绷感会自然减轻。",
   },
   {
     title: "哼鸣 (Humming)",
-    body: "闭上嘴轻轻哼一段 30 秒，喉部震动会刺激迷走神经，舒缓焦虑与心率。",
+    body: "闭上嘴轻轻哼一段 30 秒，喉部的轻微震动会带来放松体验，让人慢慢松弛下来。",
   },
   {
     title: "20 秒拥抱",
-    body: "一个超过 20 秒的拥抱（或自我拥抱）会释放催产素，让神经系统感觉「我是安全的」。",
+    body: "一个超过 20 秒的拥抱（或自我拥抱）会带来温暖安心的感觉，帮助自己放松下来。",
   },
   {
     title: "Grounding 5-4-3-2-1",
     body: "说出 5 个看到、4 个听到、3 个触到、2 个闻到、1 个尝到的东西，把自己带回当下。",
   },
   {
-    title: "EFT 敲击",
-    body: "用指尖依次轻敲眉头、眼角、颧骨、人中、下巴、锁骨与腋下，每个点位轻敲 5-7 下并配合深呼吸，能快速释放紧张与焦虑情绪。",
+    title: "节奏轻点放松",
+    body: "用指尖依次轻敲眉头、眼角、颧骨、人中、下巴、锁骨与腋下，每个点位轻敲 5-7 下并配合深呼吸，让注意力回到身体的节奏上，慢慢放松下来。",
   },
 ];
 
-const NEURAL_INTRO =
-  "神经系统调节是帮助身体从紧张、焦虑或压力状态，回到平静、安全和稳定状态的过程。当你更稳定时，你会更容易专注保持积极思考，并减少被外界或旧想法影响，让日常生活和保持积极想法变得更轻松、更自然。";
+const RELAX_INTRO =
+  "身心放松指南收集了一些简单的小练习，帮你在紧张或疲惫时，让身体慢慢回到平静、安稳的状态。当你更放松时，会更容易专注并保持积极的想法，减少被外界或旧想法影响，让日常生活变得更轻松、更自然。";
 
 function BreathFocus() {
   const { settings, setSettings } = useApp();
@@ -931,10 +931,10 @@ function BreathFocus() {
 
       <WhiteNoiseSelector />
 
-      {/* Neural regulation intro + Tips */}
+      {/* Relax guide intro + Tips */}
       <GlassCard>
-        <h2 className="font-display text-xl mb-3">神经系统调节</h2>
-        <p className="text-sm leading-relaxed opacity-85 mb-5">{NEURAL_INTRO}</p>
+        <h2 className="font-display text-xl mb-3">身心放松指南</h2>
+        <p className="text-sm leading-relaxed opacity-85 mb-5">{RELAX_INTRO}</p>
         <div className="grid md:grid-cols-2 gap-3">
           {TIPS.map((t) => (
             <div key={t.title} className="glass rounded-2xl p-4">

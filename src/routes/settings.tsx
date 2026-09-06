@@ -12,7 +12,6 @@ import {
   Sun,
   Moon,
   Image as ImageIcon,
-  Coffee,
   Trash2,
   X,
   Timer,
@@ -21,9 +20,6 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import donateWechat from "@/assets/donate-wechat.jpg";
-import donateAlipay from "@/assets/donate-alipay.jpg";
-
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "设置 · GG RESET" }] }),
   component: SettingsPage,
@@ -37,7 +33,6 @@ function SettingsPage() {
   const { settings, setSettings } = useApp();
   const fileRef = useRef<HTMLInputElement>(null);
   const bgRef = useRef<HTMLInputElement>(null);
-  const [showDonate, setShowDonate] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -388,55 +383,7 @@ function SettingsPage() {
           </button>
         </GlassCard>
 
-        {/* Donate */}
-        <GlassCard className="text-center">
-          <Coffee className="size-6 mx-auto mb-2 opacity-70" />
-          <p className="font-display text-lg mb-1">如果喜欢 GG reset</p>
-          <p className="text-xs opacity-60 mb-4">可以请作者喝杯咖啡 ☕</p>
-          <button
-            onClick={() => setShowDonate(true)}
-            className="inline-flex glass glass-hover rounded-full px-5 py-2.5 text-sm items-center gap-2"
-          >
-            <Coffee className="size-4" /> 打赏作者
-          </button>
-          <p className="text-[11px] opacity-55 mt-3 leading-relaxed">
-            本网站所有功能均可免费使用，打赏非强制，不影响任何功能的使用。
-          </p>
-        </GlassCard>
-
       </div>
-
-      {showDonate && (
-        <div
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4"
-          onClick={() => setShowDonate(false)}
-        >
-          <div
-            className="glass-strong rounded-3xl p-5 w-full max-w-sm relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setShowDonate(false)}
-              className="absolute -top-3 -right-3 glass-strong rounded-full size-9 flex items-center justify-center shadow-md"
-              aria-label="关闭"
-            >
-              <X className="size-4" />
-            </button>
-            <p className="font-display text-lg text-center mb-4">打赏作者</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-2xl overflow-hidden glass p-2 flex flex-col items-center">
-                <img src={donateWechat} alt="微信支付" className="w-full h-auto rounded-xl" />
-                <p className="text-[10px] opacity-70 mt-1.5">微信</p>
-              </div>
-              <div className="rounded-2xl overflow-hidden glass p-2 flex flex-col items-center">
-                <img src={donateAlipay} alt="支付宝" className="w-full h-auto rounded-xl" />
-                <p className="text-[10px] opacity-70 mt-1.5">支付宝</p>
-              </div>
-            </div>
-            <p className="text-center text-xs opacity-70 mt-4">感谢您的支持</p>
-          </div>
-        </div>
-      )}
 
       {showChangelog && (
         <div

@@ -6,7 +6,7 @@ export const GUIDE_SECTIONS: { title: string; body: ReactNode }[] = [
     title: "欢迎",
     body: (
       <p>
-        欢迎来到 <b>GG RESET</b>，在这里你可以通过计时、计数和呼吸调整来辅助大脑解压与高效专注。
+        欢迎来到 <b>GG RESET</b>，在这里你可以通过计时、计数和呼吸调整，帮助自己放松下来、保持专注。
       </p>
     ),
   },
@@ -36,7 +36,7 @@ export const GUIDE_SECTIONS: { title: string; body: ReactNode }[] = [
     body: (
       <>
         <p>
-          【进入专注】页面顶部可切换模式进入"呼吸调整"页面，开始计时跟随呼吸球完成呼吸放松。底部还有其他缓解压力的小 tips 噢！
+          【进入专注】页面顶部可切换模式进入"呼吸调整"页面，开始计时跟随呼吸球完成呼吸放松。底部还有其他放松身心的小 tips 噢！
         </p>
         <p className="mt-2 opacity-80">
           · 在设置里可以自定义呼吸的间隔，也可以选择计时模式和选择播放白噪音。
@@ -85,7 +85,7 @@ export const GUIDE_SECTIONS: { title: string; body: ReactNode }[] = [
     title: "GG RESET · 声明",
     body: (
       <p className="opacity-80">
-        GG reset 由 ai 搭建完成，所有功能均免费。GG RESET 仅提供正念放松平台，不替代任何医疗、心理或专业建议。所有数据仅储存于您本地浏览器，我们不收集、不上传、不分享任何信息。如有身心不适，请及时寻求专业帮助。
+        GG reset 由 AI 搭建完成，所有功能均免费。本工具仅供日常正念打卡与习惯记录使用，不提供任何专业建议。所有数据仅储存于您本地浏览器，我们不收集、不上传、不分享任何信息。
       </p>
     ),
   },
