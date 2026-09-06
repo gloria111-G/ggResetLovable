@@ -3,6 +3,7 @@
  */
 const store = require('../../utils/storage');
 const audio = require('../../utils/audio');
+const GUIDE = require('../../utils/guide');
 
 const BG = { light: '/images/ocean-bg.jpg', dark: '/images/ocean-bg-dark.jpg' };
 
@@ -14,10 +15,12 @@ Page({
 
     // 外观
     theme: 'light',
+    // 使用说明（内联展开，对应 Web UsageGuide）
+    guide: GUIDE,
+    guideOpen: false,
+    homeGuideShortcut: true,
     // 计数设置
     sound: false,
-    showCounter: true,
-    showBreath: true,
     counterMode: 'today',
     autoCountEnabled: false,
     autoCountInterval: 1,
@@ -30,8 +33,6 @@ Page({
     hold1: 4,
     exhale: 4,
     hold2: 4,
-    // 白噪音
-    whiteNoise: 'off',
     // 数据
     importVisible: false,
     importText: '',
@@ -40,7 +41,6 @@ Page({
     resetOk: false,
     // 关于
     logVisible: false,
-    guideVisible: false,
   },
 
   onShow() {
@@ -48,20 +48,24 @@ Page({
   },
 
   _load() {
-    const s = store.getSettings();
+    let s = store.getSettings();
     const c = s.customBreath || {};
     const dark = s.theme === 'dark';
+    // Web 版中计数器与呼吸页签恒常可见，无开关；兼容旧数据强制为 true
+    if (s.showBreath === false || s.showCounter === false) {
+      store.patchSettings({ showBreath: true, showCounter: true });
+      s = store.getSettings();
+    }
     this.setData({
       dark,
       theme: s.theme || 'light',
       customBg: s.customBg || '',
       bg: s.customBg || (dark ? BG.dark : BG.light),
+      homeGuideShortcut: s.homeGuideShortcut !== false,
       sound: !!s.sound,
-      showCounter: s.showCounter !== false,
-      showBreath: s.showBreath !== false,
       counterMode: s.counterMode || 'today',
       autoCountEnabled: !!s.autoCountEnabled,
-      autoCountInterval: Math.max(1, Math.round(s.autoCountInterval || 1)),
+      autoCountInterval: Math.min(60, Math.max(0.1, parseFloat(s.autoCountInterval || 1))),
       resetCounterEnabled: !!s.resetCounterEnabled,
       affirmTimerMode: s.affirmTimerMode || 'countdown',
       breathTimerMode: s.breathTimerMode || 'countdown',
@@ -70,7 +74,6 @@ Page({
       hold1: c.hold1 || 4,
       exhale: c.exhale || 4,
       hold2: c.hold2 || 4,
-      whiteNoise: s.whiteNoise || 'off',
     });
     this._nav(dark);
   },
@@ -171,6 +174,15 @@ Page({
     this._patch({ [field]: value });
     this.setData({ [field]: value });
   },
+  /** 数字输入（自动计数间隔，支持小数） */
+  onInt(e) {
+    const field = e.currentTarget.dataset.field;
+    let v = parseFloat(e.detail.value);
+    if (!isFinite(v)) return;
+    v = Math.min(60, Math.max(0.1, v));
+    this._patch({ [field]: v });
+    this.setData({ [field]: v });
+  },
 
   /* ============ 呼吸自定义 ============ */
   breathModeTap(e) {
@@ -250,6 +262,5 @@ Page({
   noop() {},
   openLog() { this.setData({ logVisible: true }); },
   closeLog() { this.setData({ logVisible: false }); },
-  openGuide() { this.setData({ guideVisible: true }); },
-  closeGuide() { this.setData({ guideVisible: false }); },
+  guideToggle() { this.setData({ guideOpen: !this.data.guideOpen }); },
 });

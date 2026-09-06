@@ -14,11 +14,27 @@ const DUR_CHIPS = [1, 3, 5, 10, 15, 20, 25, 30, 45, 60, 90, 120]; // 分钟
 const MAX_H = 16;
 const NOISE_TRACKS = [
   { key: 'off', label: '关闭' },
-  { key: 'waves', label: '海浪' },
-  { key: 'fire', label: '篝火' },
-  { key: 'rain', label: '雨声' },
+  { key: 'waves', label: '海浪', icon: '🌊' },
+  { key: 'fire', label: '篝火', icon: '🔥' },
+  { key: 'rain', label: '雨声', icon: '🌧️' },
+];
+const RELAX_INTRO = '身心放松指南收集了一些简单的小练习，帮你在紧张或疲惫时，让身体慢慢回到平静、安稳的状态。当你更放松时，会更容易专注并保持积极的想法，减少被外界或旧想法影响，让日常生活变得更轻松、更自然。';
+const TIPS = [
+  { title: '放松体验的温柔启动', body: '用冰水轻拍面颊或含一口冰水，能快速带来清凉的放松体验，帮助身体从紧绷回到松弛状态。' },
+  { title: '4-7-8 呼吸', body: '吸气 4 秒、屏息 7 秒、呼气 8 秒。重复 4 组，呼吸节奏放慢后，身体会进入深层放松，紧绷感会自然减轻。' },
+  { title: '哼鸣 (Humming)', body: '闭上嘴轻轻哼一段 30 秒，喉部的轻微震动会带来放松体验，让人慢慢松弛下来。' },
+  { title: '20 秒拥抱', body: '一个超过 20 秒的拥抱（或自我拥抱）会带来温暖安心的感觉，帮助自己放松下来。' },
+  { title: 'Grounding 5-4-3-2-1', body: '说出 5 个看到、4 个听到、3 个触到、2 个闻到、1 个尝到的东西，把自己带回当下。' },
+  { title: '节奏轻点放松', body: '用指尖依次轻敲眉头、眼角、颧骨、人中、下巴、锁骨与腋下，每个点位轻敲 5-7 下并配合深呼吸，让注意力回到身体的节奏上，慢慢放松下来。' },
 ];
 const PHASE_LABEL = { in: '吸气', hold: '屏息', out: '呼气' };
+
+/* 拨盘（对应 Web WheelDuration）：行高 36px，高 180px 显示 5 行 */
+const ITEM_H = 36;
+const WHEEL_H = [];
+const WHEEL_M = [];
+for (let i = 0; i <= MAX_H; i++) WHEEL_H.push(util.pad(i));
+for (let i = 0; i < 60; i++) WHEEL_M.push(util.pad(i));
 
 function buildPhases(settings) {
   const m = settings.breathMode;
@@ -53,6 +69,8 @@ Page({
     sound: false,
     noiseOn: 'off',
     noiseTracks: NOISE_TRACKS,
+    relaxIntro: RELAX_INTRO,
+    tips: TIPS,
 
     // 肯定语
     tags: [],
@@ -75,6 +93,8 @@ Page({
     total: 0, // 倒计时目标秒
     clock: '00:00',
     clockSuffix: '',
+    counterModeLabel: '今日计数',
+    autoInterval: 1,
 
     // 时长选择
     durChips: DUR_CHIPS,
@@ -86,6 +106,15 @@ Page({
     minIndex: 0,
     hoursArr: [],
     minsArr: [],
+    whVals: WHEEL_H,
+    wmVals: WHEEL_M,
+    wsVals: WHEEL_M,
+    whSel: 0,
+    wmSel: 5,
+    wsSel: 0,
+    scrollH: 0,
+    scrollM: 180,
+    scrollS: 0,
 
     // 呼吸
     breathLabel: '',
@@ -116,6 +145,7 @@ Page({
     this._applySettings(s, false);
     this._refreshAfterReturn();
     this._restoreSession();
+    this._maybeSyncWheel();
   },
   onHide() {
     this._suspendEngine(true);
@@ -143,6 +173,8 @@ Page({
       noiseOn: s.whiteNoise || 'off',
       resetEnabled: !!s.resetCounterEnabled,
       autoEnabled: !!s.autoCountEnabled,
+      autoInterval: Math.max(1, s.autoCountInterval || 1),
+      counterModeLabel: s.counterMode === 'total' ? '累计计数' : '今日计数',
     };
     if (full) {
       patch.tab = store.getFocusTab();
@@ -202,6 +234,7 @@ Page({
     this._suspendEngine(true);
     this._applyTabMeta(tab, store.getSettings());
     this._resetEngineState();
+    this._maybeSyncWheel();
   },
 
   _resetEngineState() {
@@ -292,7 +325,9 @@ Page({
     const affs = store.getAffirmations();
     const aff = affs.find((a) => a.id === selectedAff);
     if (aff) cumSum = aff.count || 0;
-    this.setData({ todayBadge: todaySum, cumBadge: cumSum });
+    const cfg = store.getSettings();
+    const disp = cfg.counterMode === 'total' ? cumSum : todaySum;
+    this.setData({ todayBadge: todaySum, cumBadge: cumSum, countDisplay: disp });
   },
 
   /* ================= 计数 ================= */
@@ -354,7 +389,7 @@ Page({
       paused: false,
       elapsed: 0,
       total,
-      clock: util.fmtClock(0, true),
+      clock: util.fmtClock(0),
       isTimer,
       showDurPanel: true,
     });
@@ -367,7 +402,7 @@ Page({
     e.total = total;
     e.startedAt = Date.now();
     e.running = true;
-    this.setData({ running: true, paused: false, total, showDurPanel: false, elapsed: 0, clock: util.fmtClock(total, true) });
+    this.setData({ running: true, paused: false, total, showDurPanel: false, elapsed: 0, clock: util.fmtClock(total) });
     if (e.isTimer && total <= 0) return;
     this._startTicker('affirm');
     this._saveAffirmSession(e);
@@ -444,11 +479,12 @@ Page({
     void s;
   },
   _clockText(e, forceHours) {
+    // 与 Web 一致：不足 1 小时时省略小时位（fmtClock 自动处理）
     if (e.isTimer && e.total > 0) {
       const rem = Math.max(0, e.total - Math.floor(e.base));
-      return util.fmtClock(rem, true);
+      return util.fmtClock(rem);
     }
-    return util.fmtClock(Math.floor(e.base), true);
+    return util.fmtClock(Math.floor(e.base));
   },
   resetAffirm() {
     // 手动重置当前引擎（暂停状态下）
@@ -606,9 +642,9 @@ Page({
           this.finishAffirm(false);
           return;
         }
-        this.setData({ clock: util.fmtClock(Math.max(0, e.total - Math.floor(elapsed)), true) });
+        this.setData({ clock: util.fmtClock(Math.max(0, e.total - Math.floor(elapsed))) });
       } else {
-        this.setData({ clock: util.fmtClock(Math.floor(e.base + (now - e.startedAt) / 1000), true) });
+        this.setData({ clock: util.fmtClock(Math.floor(e.base + (now - e.startedAt) / 1000)) });
       }
     } else {
       // 呼吸：倒计时 / 顺计时展示
@@ -620,8 +656,8 @@ Page({
       }
       this.setData({
         clock: e.isTimer && e.total > 0
-          ? util.fmtClock(Math.max(0, e.total - Math.floor(elapsed)), true)
-          : util.fmtClock(Math.floor(elapsed), true),
+          ? util.fmtClock(Math.max(0, e.total - Math.floor(elapsed)))
+          : util.fmtClock(Math.floor(elapsed)),
       });
     }
   },
@@ -642,7 +678,7 @@ Page({
     this._engine = e;
     this.setData({
       running: true, paused: false, elapsed: 0, total,
-      clock: util.fmtClock(isTimer && total > 0 ? total : 0, true),
+      clock: util.fmtClock(isTimer && total > 0 ? total : 0),
       showDurPanel: false, celebration: false,
     });
     this._startTicker('breath');
@@ -815,6 +851,89 @@ Page({
       running: false, paused: false, clock: '00:00', showDurPanel: true,
       ballCss: 'transform:scale(1);transition:transform 0.4s linear', phaseLabel: '轻触开始',
     });
+  },
+
+  /* ================= 拨盘（Web WheelDuration 等效实现） ================= */
+  _maybeSyncWheel() {
+    if (this._destroyed) return;
+    const d = this.data;
+    if (!d.showDurPanel || d.running || d.paused || !d.isTimer) return;
+    const s = store.getSettings();
+    const secs = Math.max(0, d.tab === 'breath' ? (s.breathFocusDuration || 300) : (s.focusDuration || 300));
+    const h = Math.min(MAX_H, Math.floor(secs / 3600));
+    const m = Math.min(59, Math.floor((secs % 3600) / 60));
+    const ss = Math.min(59, secs % 60);
+    this.setData({
+      whSel: h, wmSel: m, wsSel: ss,
+      scrollH: h * ITEM_H, scrollM: m * ITEM_H, scrollS: ss * ITEM_H,
+    });
+  },
+  wheelScroll(e) {
+    const key = e.currentTarget.dataset.key;
+    const top = e.detail.scrollTop;
+    const max = key === 'h' ? MAX_H : 59;
+    const idx = Math.max(0, Math.min(max, Math.round(top / ITEM_H)));
+    const k = key === 'h' ? 'whSel' : key === 'm' ? 'wmSel' : 'wsSel';
+    const p = {};
+    p[k] = idx;
+    this.setData(p);
+  },
+  wheelSettle(e) {
+    const key = e.currentTarget.dataset.key;
+    const d = this.data;
+    const idx = key === 'h' ? d.whSel : key === 'm' ? d.wmSel : d.wsSel;
+    const k = key === 'h' ? 'scrollH' : key === 'm' ? 'scrollM' : 'scrollS';
+    const p = {};
+    p[k] = idx * ITEM_H;
+    this.setData(p);
+    this._applyWheelDur();
+  },
+  wheelTap(e) {
+    const key = e.currentTarget.dataset.key;
+    const idx = Number(e.currentTarget.dataset.idx);
+    const max = key === 'h' ? MAX_H : 59;
+    const v = Math.max(0, Math.min(max, idx));
+    const dk = key === 'h' ? 'whSel' : key === 'm' ? 'wmSel' : 'wsSel';
+    const sk = key === 'h' ? 'scrollH' : key === 'm' ? 'scrollM' : 'scrollS';
+    const p = {};
+    p[dk] = v;
+    p[sk] = v * ITEM_H;
+    this.setData(p);
+    this._applyWheelDur();
+  },
+  _applyWheelDur() {
+    const d = this.data;
+    const secs = Math.max(1, d.whSel * 3600 + d.wmSel * 60 + d.wsSel);
+    const key = d.tab === 'breath' ? 'breathFocusDuration' : 'focusDuration';
+    const patch = {};
+    patch[key] = secs;
+    store.patchSettings(patch);
+    this.setData({ total: secs, clock: util.fmtClock(secs) });
+  },
+
+  /* ================= 通用计时控制（两个 Tab 共用一套 UI） ================= */
+  timerPrimary() {
+    const d = this.data;
+    if (d.tab === 'breath') {
+      if (d.running) this.breathPause();
+      else if (d.paused) this.breathResume();
+      else this.breathStart();
+    } else {
+      if (d.running) this.pauseAffirm();
+      else if (d.paused) this.resumeAffirm();
+      else this.startAffirm();
+    }
+  },
+  timerEnd() {
+    if (!this._engine) return;
+    if (this.data.tab === 'breath') this.breathDone();
+    else this.finishAffirmNow();
+  },
+  goHome() {
+    wx.navigateBack({ delta: 1, fail: () => wx.reLaunch({ url: '/pages/index/index' }) });
+  },
+  goSettings() {
+    wx.navigateTo({ url: '/pages/settings/settings' });
   },
 
   /* ================= 挂起（页面离开时持久化） ================= */

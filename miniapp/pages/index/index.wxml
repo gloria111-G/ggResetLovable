@@ -1,124 +1,113 @@
 <view class="app {{dark ? 'theme-dark' : ''}}">
   <image class="app-bg" src="{{bg}}" mode="aspectFill" />
+  <view class="bg-tint"></view>
 
-  <view class="wrap">
-    <!-- 顶部品牌卡 -->
-    <view class="glass card">
-      <view class="row-between">
+  <!-- ============ 主页内容 ============ -->
+  <view class="pg home">
+    <view class="hero">
+      <text class="ft-xs track-4 op-60 tagline">FOCUS · COUNTER · TIMER</text>
+      <view class="serif ft-6xl title">GG RESET</view>
+
+      <block wx:if="{{!logged}}">
+        <view class="link" hover-class="pressed" bindtap="openLogin">微信一键快捷登录 / 进入应用</view>
+      </block>
+      <block wx:else>
+        <view class="link lg-none" hover-class="pressed" bindtap="openAccount">
+          <text class="op-70">已登录 · 微信用户</text>
+          <text class="num dim"> · {{mask}}</text>
+        </view>
+      </block>
+
+      <view wx:if="{{guideShortcut}}" class="link" hover-class="pressed" bindtap="openGuide">第一次来？点击查看使用指南</view>
+    </view>
+
+    <view class="tiles">
+      <view
+        wx:for="{{tiles}}"
+        wx:key="key"
+        class="glass glass-hover tile"
+        hover-class="hovered"
+        data-url="{{item.url}}"
+        bindtap="go"
+      >
+        <text class="tile-ic op-80">{{item.glyph}}</text>
         <view>
-          <text class="serif t-title">GG RESET</text>
-          <view class="t-xs t-mut mt8">像重置手机一样，重置你的大脑</view>
+          <text class="tile-sub">{{item.sub}}</text>
+          <text class="serif ft-lg tile-label">{{item.label}}</text>
         </view>
-        <view wx:if="{{logged}}" class="row" hover-class="pressed" bindtap="openAccount">
-          <view class="chip">
-            <text>👤 {{nickname}}</text>
-            <text class="mono t-xs">{{mask}}</text>
-          </view>
-        </view>
-      </view>
-    </view>
-
-    <!-- 功能宫格 -->
-    <view class="grid2 mt20">
-      <view class="cell" wx:for="{{entries}}" wx:key="key">
-        <view class="glass card tile" hover-class="pressed" data-url="{{item.url}}" bindtap="go">
-          <view class="row-between">
-            <text class="tile-icon">{{item.icon}}</text>
-            <text class="t-xs t-mut2">›</text>
-          </view>
-          <view class="t-h3 mt16">{{item.label}}</view>
-          <view class="t-xs t-mut mt4">{{item.desc}}</view>
-        </view>
-      </view>
-    </view>
-
-    <!-- 登录 / 已登录状态 -->
-    <view class="glass card mt20" wx:if="{{!logged}}">
-      <view class="center">
-        <text class="t-h3">开始你的专注练习</text>
-      </view>
-      <button class="btn btn-lg mt20 wechat-btn" bindtap="openLogin">
-        <view class="wechat-badge">微信</view>
-        <text class="t-md">微信一键快捷登录</text>
-        <text class="t-xs t-mut2">/ 进入应用</text>
-      </button>
-      <view class="t-xs t-mut2 center mt16">
-        模拟微信小程序静默登录 · OpenID 由本机生成，不收集任何个人信息
-      </view>
-    </view>
-
-    <view class="glass card mt20" wx:else>
-      <view class="row-between">
-        <view class="flex-1">
-          <text class="t-h3">已登录 · {{nickname}}</text>
-          <view class="t-xs t-mut mt4">账号由本机标识（OpenID）驱动，退出不影响数据</view>
-        </view>
-        <view class="btn btn-ghost btn-sm" hover-class="pressed" bindtap="openAccount">账户</view>
-      </view>
-    </view>
-
-    <view class="t-xs t-mut2 center mt32" style="line-height:1.8">
-      每次呼吸都是给大脑的一次重启。
-      <br />所有数据仅保存在你的设备本地，不收集、不上传、不分享。
-    </view>
-  </view>
-
-  <!-- ============ 登录弹层 ============ -->
-  <view class="overlay-mask" wx:if="{{showLogin}}" bindtap="closeLogin">
-    <view class="dialog" catchtap="noop">
-      <view class="dialog-close" bindtap="closeLogin">✕</view>
-      <view class="center">
-        <text class="serif t-h1">登录 GG RESET</text>
-        <view class="t-xs t-mut mt8">微信小程序同款 · 一键快捷登录，无需手机号与验证码</view>
-      </view>
-      <view class="glass-inset mt24 row" style="padding:20rpx 24rpx;gap:14rpx">
-        <text style="font-size:32rpx">🛡️</text>
-        <text wx:if="{{existingId}}" class="t-xs t-mut" style="flex:1">
-          已检测到本机账号 <text class="mono">{{existingId}}</text>，点击下方按钮将一键恢复登录。
-        </text>
-        <text wx:else class="t-xs t-mut" style="flex:1">
-          首次使用将为本机自动创建唯一账号（OpenID），数据安全保存在当前设备。
-        </text>
-      </view>
-      <button class="btn btn-lg btn-block mt24 wechat-btn" bindtap="doLogin">
-        <view class="wechat-badge">微信</view>
-        <text class="t-md">微信一键快捷登录</text>
-        <text class="t-xs t-mut2">/ 进入应用</text>
-      </button>
-      <view class="t-xs t-mut2 center mt20" style="line-height:1.7">
-        模拟 wx.login 静默登录 · OpenID 由本机生成
-        <br />不收集、不上传、不分享任何个人信息
       </view>
     </view>
   </view>
 
-  <!-- ============ 账户弹层 ============ -->
-  <view class="overlay-mask" wx:if="{{showAccount}}" bindtap="closeAccount">
+  <view class="foot">
+    <text class="f-line">本工具仅供日常正念打卡与习惯记录使用，不提供任何专业建议。</text>
+    <text class="f-line">所有数据仅存储于本机，我们不收集、不上传、不分享任何个人信息。</text>
+  </view>
+
+  <!-- ============ 使用指南 ============ -->
+  <view class="overlay" wx:if="{{showGuide}}" bindtap="closeGuide">
     <view class="dialog" catchtap="noop">
-      <view class="dialog-close" bindtap="closeAccount">✕</view>
-      <view class="center">
-        <text class="serif t-h1">账户</text>
-        <view class="t-xs t-mut mt8">{{nickname}} · <text class="mono">{{mask}}</text></view>
+      <view class="dialog-close" catchtap="closeGuide">✕</view>
+      <view class="serif ft-2xl">GG RESET · 使用指南</view>
+      <scroll-view scroll-y class="guide-body">
+        <view wx:for="{{guide}}" wx:key="t" class="guide-sec">
+          <view class="serif ft-lg guide-h">{{item.t}}</view>
+          <view
+            wx:for="{{item.lines}}"
+            wx:for-item="line"
+            wx:key="*this"
+            class="ft-sm lh-relaxed guide-p"
+          >{{line}}</view>
+        </view>
+      </scroll-view>
+      <view class="btn btn-primary btn-block mt5" hover-class="pressed" bindtap="closeGuide">知道了</view>
+    </view>
+  </view>
+
+  <!-- ============ 登录弹窗 ============ -->
+  <view class="overlay" wx:if="{{showLogin}}" bindtap="closeLogin">
+    <view class="dialog dlg-narrow" catchtap="noop">
+      <view class="dialog-close dlg-close-float" catchtap="closeLogin">✕</view>
+      <view class="serif ft-2xl center-x mb1">登录 GG RESET</view>
+      <view class="ft-10 op-60 center-x mb5">微信小程序同款 · 一键快捷登录，无需手机号与验证码</view>
+
+      <view class="glass card-inset px4 py3 mb5 row items-start gap2">
+        <text class="shield">◉</text>
+        <text class="ft-10 lh-relaxed op-70 flex-1">
+          <block wx:if="{{existingId}}">已检测到本机账号 <text class="num">{{existingId}}</text>，点击下方按钮将一键恢复登录。</block>
+          <block wx:else>首次使用将为本机自动创建唯一账号（OpenID），数据安全保存在本机。</block>
+        </text>
       </view>
-      <view class="glass-inset mt24" style="padding:8rpx 28rpx">
-        <view class="row-between" style="padding:20rpx 0">
-          <text class="t-xs t-mut">登录方式</text>
-          <text class="t-xs">微信一键快捷登录（本机 OpenID）</text>
-        </view>
-        <view class="row-between" style="padding:20rpx 0;border-top:1rpx solid var(--border)">
-          <text class="t-xs t-mut">账号标识</text>
-          <text class="t-xs mono">{{mask}}</text>
-        </view>
-        <view class="row-between" style="padding:20rpx 0;border-top:1rpx solid var(--border)">
-          <text class="t-xs t-mut">数据同步</text>
-          <text class="t-xs">保存在本机设备 · 云端接入预留</text>
-        </view>
+
+      <view class="btn btn-primary w-full login-btn" hover-class="pressed" bindtap="doLogin">
+        <view class="wx-badge">微信</view>
+        <text class="ft-sm">微信一键快捷登录<text class="dim ft-10"> / 进入应用</text></text>
+        <text class="dim ml2">→</text>
       </view>
-      <button class="btn btn-block mt24 btn-danger" style="border:1rpx solid var(--border);background:var(--glass)" bindtap="doSignOut">
-        退出登录
-      </button>
-      <view class="t-xs t-mut2 center mt16">
-        退出不会清除本机数据与账号标识，下次点击微信快捷登录即可一键恢复。
+
+      <view class="ft-10 op-50 col mt4 center">
+        <text>模拟微信小程序 wx.login 静默登录 · OpenID 由本机生成</text>
+        <text>不收集、不上传、不分享任何个人信息</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 账户弹窗 ============ -->
+  <view class="overlay" wx:if="{{showAccount}}" bindtap="closeAccount">
+    <view class="dialog dlg-narrow" catchtap="noop">
+      <view class="dialog-close dlg-close-float" catchtap="closeAccount">✕</view>
+      <view class="serif ft-xl center-x mb1">账户</view>
+      <view class="ft-10 op-60 center-x mb5">已登录 · 微信用户<text class="num"> · {{mask}}</text></view>
+
+      <view class="glass card-inset px4 py2 mb5 account-rows">
+        <view class="row-between py2h"><text class="op-60">登录方式</text><text class="op-90">微信一键快捷登录（本机 OpenID）</text></view>
+        <view class="row-between py2h"><text class="op-60">账号标识</text><text class="num op-90">{{mask}}</text></view>
+        <view class="row-between py2h"><text class="op-60">数据同步</text><text class="op-90">保存在本机 · 云端接入预留</text></view>
+      </view>
+
+      <view class="btn btn-glass w-full py3" hover-class="pressed" bindtap="doSignOut">退出登录</view>
+      <view class="ft-10 op-50 center-x mt4 lh-relaxed">
+        退出登录不会清除本机数据与账号标识，下次点击微信快捷登录即可一键恢复。
       </view>
     </view>
   </view>

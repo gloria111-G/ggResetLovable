@@ -1,31 +1,125 @@
-.tile {
-  min-height: 180rpx;
+/* index —— 主页（对应 Web index.tsx 移动端布局） */
+
+.home {
   display: flex;
   flex-direction: column;
-}
-.tile-icon {
-  font-size: 52rpx;
-}
-.wechat-btn {
-  border-radius: 32rpx;
-  display: flex;
   align-items: center;
-  gap: 16rpx;
-  background: var(--glass-strong);
-  border: 2rpx solid var(--border);
-  box-shadow: var(--shadow-strong);
+  justify-content: center;
+  padding: 64px 24px; /* py-16 px-6 */
+  min-height: 100vh;
 }
-.wechat-badge {
-  width: 60rpx;
-  height: 60rpx;
-  border-radius: 18rpx;
+
+/* ---------- Hero ---------- */
+.hero {
+  text-align: center;
+  margin-bottom: 48px; /* mb-12 */
+}
+.tagline {
+  display: block;
+  margin-bottom: 12px; /* mb-3 */
+}
+.title {
+  line-height: 1.05;
+  text-align: center;
+}
+.link {
+  margin-top: 16px;
+  font-size: 12px;
+  opacity: 0.75;
+  text-align: center;
+  text-decoration: underline;
+  color: var(--ink);
+  display: block;
+}
+.lg-none { pointer-events: auto; }
+
+/* ---------- 4 个玻璃方块 ---------- */
+.tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px; /* gap-3 */
+  width: 100%;
+  max-width: 672px; /* max-w-2xl */
+}
+.tile {
+  position: relative;
+  width: calc(50% - 6px);
+  aspect-ratio: 1 / 1; /* aspect-square */
+  min-height: 148px;
+  padding: 20px; /* p-5 */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.tile-ic {
+  font-size: 24px;
+  line-height: 24px;
+  color: var(--ink);
+}
+.tile-sub {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  opacity: 0.5;
+  margin-bottom: 4px;
+  color: var(--ink);
+}
+.tile-label {
+  display: block;
+  font-size: 18px;
+  color: var(--ink);
+}
+
+/* ---------- 底部声明 ---------- */
+.foot text.f-line { display: block; }
+
+/* ---------- 弹窗 ---------- */
+.dlg-narrow {
+  max-width: 384px; /* max-w-sm */
+}
+.dlg-close-float {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  background: var(--card-bg-strong);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+}
+.wx-badge {
+  width: 40px; /* size-10 */
+  height: 40px;
+  border-radius: 16px; /* rounded-2xl (20+4) */
   background: #07c160;
   color: #fff;
-  font-size: 22rpx;
-  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6rpx 16rpx rgba(7, 193, 96, 0.35);
-  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  box-shadow: 0 6px 18px rgba(7, 193, 96, 0.35);
+  flex-shrink: 0;
+}
+.shield {
+  font-size: 14px;
+  line-height: 18px;
+  opacity: 0.7;
+  color: var(--ink);
+}
+.login-btn {
+  gap: 12px;
+  padding: 16px; /* py-4 */
+  border-radius: 16px; /* rounded-2xl */
+}
+.login-btn text { display: inline; }
+
+.guide-body {
+  max-height: 52vh;
+  margin-top: 4px;
+}
+.guide-sec { margin-bottom: 20px; }
+.guide-h { margin-bottom: 6px; }
+.guide-p { margin-bottom: 8px; opacity: 0.92; }
+.account-rows view + view {
+  border-top: 1px solid var(--hairline);
 }

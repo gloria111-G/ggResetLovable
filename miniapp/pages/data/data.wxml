@@ -1,125 +1,135 @@
 <view class="app {{dark ? 'theme-dark' : ''}}">
   <image class="app-bg" src="{{bg}}" mode="aspectFill" />
+  <view class="bg-tint"></view>
 
-  <view class="wrap">
+  <view class="pg d-page">
 
-    <!-- ============ 累计卡 ============ -->
+    <!-- ============ 累计卡（Web TotalCard） ============ -->
     <view class="glass card">
-      <text class="t-xs t-mut" style="letter-spacing:4rpx">累计</text>
-      <view class="row mt24" style="gap:56rpx;flex-wrap:wrap">
+      <view class="ft-xs track-widest op-50 mb3">累计</view>
+
+      <view class="row items-end flex-wrap gap6 mb6">
         <view>
-          <text class="t-num-lg mono">{{allCount}}</text>
-          <view class="t-xs t-mut mt8">次肯定语</view>
+          <view class="num d-num">{{allCount}}</view>
+          <view class="ft-xs op-60 mt1">次肯定语</view>
         </view>
         <view>
-          <text class="t-num-lg mono">{{allMin}}</text>
-          <view class="t-xs t-mut mt8">分钟专注</view>
+          <view class="num d-num">{{allMin}}</view>
+          <view class="ft-xs op-60 mt1">分钟专注</view>
         </view>
         <view>
-          <text class="t-num-lg mono">{{breathAllMin}}</text>
-          <view class="t-xs t-mut mt8">分钟 · 呼吸调整</view>
+          <view class="num d-num">{{breathAllMin}}</view>
+          <view class="ft-xs op-60 mt1">分钟 · 呼吸调整</view>
         </view>
       </view>
 
-      <view class="t-xs t-mut mt32 mb12">主题分布</view>
-      <view wx:if="{{distRows.length}}" class="stack">
-        <view class="row" wx:for="{{distRows}}" wx:key="tag" style="gap:14rpx">
-          <text class="t-sm t-mut" style="width:110rpx;flex:none">#{{item.tag}}</text>
+      <view class="ft-xs op-60 mb2">主题分布</view>
+      <view wx:if="{{distRows.length}}" class="d-stack">
+        <view class="row d-bar-row" wx:for="{{distRows}}" wx:key="tag">
+          <view class="ft-xs d-tag">#{{item.tag}}</view>
           <view class="bar-track">
-            <view class="bar-fill" style="width:{{item.pct}}%;background:{{item.color}}"></view>
+            <view class="bar-fill" style="width:{{item.pct}}%"></view>
           </view>
-          <text class="t-sm mono t-mut" style="width:70rpx;text-align:right">{{item.count}}</text>
+          <view class="num ft-xs d-count">{{item.count}}</view>
         </view>
       </view>
-      <view wx:else class="empty">还没有数据，去专注一次吧。</view>
+      <view wx:else class="ft-xs op-50">还没有数据，去专注一次吧。</view>
     </view>
 
-    <!-- ============ 近 30 天卡 ============ -->
-    <view class="glass card mt20">
-      <view class="row-between">
-        <text class="t-xs t-mut" style="letter-spacing:4rpx">近 30 天</text>
-        <view class="t-xs t-mut">
-          <text class="t-num mono t-h3">{{monthCount}}</text> 次 ·
-          <text class="t-num mono t-h3">{{monthMin}}</text> 分钟 ·
-          <text class="t-num mono t-h3">{{monthBreathMin}}</text> 分钟呼吸
+    <!-- ============ 近 30 天卡（Web MonthCard） ============ -->
+    <view class="glass card mt6">
+      <view class="row-between mb4">
+        <view class="ft-xs track-widest op-50">近 30 天</view>
+        <view class="ft-xs op-60 d-sumline">
+          <text class="num ft-lg">{{monthCount}}</text>次 ·
+          <text class="num ft-lg">{{monthMin}}</text>分钟 ·
+          <text class="num ft-lg">{{monthBreathMin}}</text>分钟呼吸
         </view>
       </view>
 
-      <!-- 打卡日历 -->
-      <view class="t-xs t-mut mt24 mb12">打卡日历</view>
+      <!-- 打卡日历（Web CalendarHeat） -->
+      <view class="ft-xs op-60 mb2">打卡日历</view>
       <view class="heat-week">
         <text class="heat-wd" wx:for="{{heatWeek}}" wx:key="*this">{{item}}</text>
       </view>
       <view class="heat-grid">
         <view
-          class="heat-cell"
           wx:for="{{heat}}"
           wx:key="index"
-          style="{{item.has ? 'background:' + item.color + '55;border:1rpx solid ' + item.color : ''}}"
+          class="heat-cell {{item.has ? 'heat-on' : ''}}"
+          style="{{item.has ? 'background:' + item.color + '55;border-color:' + item.color : ''}}"
           data-date="{{item.date}}"
           bindtap="openDay"
         >
-          <text class="{{item.has ? 'heat-num on' : 'heat-num'}}">{{item.day}}</text>
+          <text wx:if="{{!item.pad}}" class="num {{item.has ? 'heat-num on' : 'heat-num'}}">{{item.day}}</text>
         </view>
       </view>
-      <view class="chip-wrap mt16" wx:if="{{heatLegend.length}}">
-        <view class="heat-legend" wx:for="{{heatLegend}}" wx:key="tag">
-          <view class="heat-dot" style="background:{{item.color}}"></view>
-          <text>#{{item.tag}}</text>
+      <view class="heat-legend" wx:if="{{heatLegend.length}}">
+        <view class="lg-item" wx:for="{{heatLegend}}" wx:key="tag">
+          <view class="lg-dot" style="background:{{item.color}}"></view>
+          <text class="ft-10 op-70">#{{item.tag}}</text>
         </view>
       </view>
 
-      <!-- 时间分配饼图 -->
-      <view class="t-xs t-mut mt32 mb12">时间分配（近30天）</view>
+      <!-- 时间分配饼图（Web PieChart） -->
+      <view class="ft-xs op-60 mt6 mb2">时间分配</view>
       <block wx:if="{{showPie}}">
-        <view class="row mt12" style="gap:24rpx;align-items:flex-start">
+        <view class="row items-start gap4 mt3">
           <canvas type="2d" id="pie" class="pie-canvas"></canvas>
-          <view class="flex-1">
+          <view class="flex-1 d-pielegend">
             <view class="pie-row" wx:for="{{pieRows}}" wx:key="tag">
               <view class="pie-dot" style="background:{{item.color}}"></view>
-              <text class="pie-tag ellipsis">#{{item.tag}}</text>
-              <text class="pie-v">{{item.min}}分</text>
-              <text class="pie-v">×{{item.count}}</text>
-              <text class="pie-v t-mut2">{{item.pct}}%</text>
+              <view class="pie-tag ft-xs ellipsis">#{{item.tag}}</view>
+              <view class="num ft-xs pie-v">{{item.min}}分</view>
+              <view class="num ft-xs pie-v">×{{item.count}}</view>
+              <view class="num ft-xs pie-v op-50">{{item.pct}}%</view>
             </view>
           </view>
         </view>
       </block>
-      <view wx:else class="empty">还没有数据。</view>
+      <view wx:else class="ft-xs op-50">还没有数据。</view>
     </view>
   </view>
 
-  <!-- ============ 单日明细 ============ -->
-  <view class="overlay-mask" wx:if="{{dayVisible}}" bindtap="closeDay">
-    <view class="dialog" catchtap="noop">
-      <view class="dialog-close" bindtap="closeDay">✕</view>
-      <text class="t-xs t-mut">{{day.date}}</text>
-      <view class="serif t-h1 mt8">当日专注</view>
-      <view class="row mt24" style="gap:16rpx">
-        <view class="glass-inset flex-1 center" style="padding:20rpx 0">
-          <view class="t-num-lg mono">{{day.count}}</view>
-          <view class="t-xs t-mut2 mt4">次肯定语</view>
+  <view class="foot">
+    <text>本工具仅供日常正念打卡与习惯记录使用，不提供任何专业建议。</text>
+    <text>所有数据仅存储于本机，我们不收集、不上传、不分享任何个人信息。</text>
+  </view>
+
+  <!-- ============ 单日明细（Web DayDetailModal） ============ -->
+  <view class="overlay" wx:if="{{dayVisible}}" bindtap="closeDay">
+    <view class="dialog dlg-sm" catchtap="noop">
+      <view class="dialog-close" catchtap="closeDay">✕</view>
+      <view class="ft-xs op-60 mb1">{{day.date}}</view>
+      <view class="serif ft-xl mb4">当日专注</view>
+
+      <view class="row gap3 mb5">
+        <view class="glass d-mini">
+          <view class="num ft-2xl">{{day.count}}</view>
+          <view class="ft-10 op-60 mt1">次肯定语</view>
         </view>
-        <view class="glass-inset flex-1 center" style="padding:20rpx 0">
-          <view class="t-num-lg mono">{{day.min}}</view>
-          <view class="t-xs t-mut2 mt4">分钟专注</view>
+        <view class="glass d-mini">
+          <view class="num ft-2xl">{{day.min}}</view>
+          <view class="ft-10 op-60 mt1">分钟专注</view>
         </view>
-        <view class="glass-inset flex-1 center" style="padding:20rpx 0">
-          <view class="t-num-lg mono">{{day.breathMin}}</view>
-          <view class="t-xs t-mut2 mt4">分钟呼吸</view>
+        <view class="glass d-mini">
+          <view class="num ft-2xl">{{day.breathMin}}</view>
+          <view class="ft-10 op-60 mt1">分钟呼吸</view>
         </view>
       </view>
 
-      <view wx:if="{{day.rows.length}}" class="stack mt24">
-        <text class="t-xs t-mut">主题分布</text>
-        <view class="row" wx:for="{{day.rows}}" wx:key="tag" style="gap:14rpx;padding:16rpx 20rpx;background:var(--glass);border-radius:20rpx">
-          <view class="pie-dot" style="background:{{item.color}}"></view>
-          <text class="flex-1 t-sm">#{{item.tag}}</text>
-          <text class="t-sm mono">{{item.min}}分</text>
-          <text class="t-sm mono">×{{item.count}}</text>
+      <block wx:if="{{day.rows.length}}">
+        <view class="ft-xs op-60 mb2">主题分布</view>
+        <view>
+          <view class="row d-day-row" wx:for="{{day.rows}}" wx:key="tag">
+            <view class="pie-dot" style="background:{{item.color}}"></view>
+            <view class="flex-1 ft-xs">#{{item.tag}}</view>
+            <view class="num ft-xs op-70">{{item.min}}分</view>
+            <view class="num ft-xs op-70">×{{item.count}}</view>
+          </view>
         </view>
-      </view>
-      <view wx:else class="empty mt20">当日暂无肯定语专注记录。</view>
+      </block>
+      <view wx:else class="ft-xs op-60">当日暂无肯定语专注记录。</view>
     </view>
   </view>
 </view>

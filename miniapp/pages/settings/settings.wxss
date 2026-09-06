@@ -1,107 +1,162 @@
-/* =========================================================
-   settings.wxss —— 设置页
-   复用 app.wxss 全局玻璃卡片 / 开关行 / seg / chip / 弹层
-   ========================================================= */
+/* 设置页（对应 Web settings.tsx：使用说明 / 外观 / 专注页面 / 数据） */
 
-.group-title {
-  display: block;
-  font-size: 22rpx;
-  letter-spacing: 6rpx;
-  color: var(--mut);
-  margin-bottom: 24rpx;
-}
-.sub-label {
-  display: block;
-  font-size: 22rpx;
-  letter-spacing: 6rpx;
-  color: var(--mut2);
-}
-
-.btn-row { display: flex; gap: 14rpx; }
-.danger-text { color: #d9534f; }
-
-/* ---------------- 开关行微调 ---------------- */
-.switch-row .label { flex: 1; }
-
-/* ---------------- 自定义呼吸数字格 ---------------- */
-.breath-grid {
-  display: flex;
-  gap: 14rpx;
-  margin-top: 20rpx;
-}
-.breath-cell { flex: 1; text-align: center; }
-.breath-cell text { display: block; margin-bottom: 10rpx; }
-.breath-cell input {
+.s-grid {
+  max-width: 1024px;
+  margin: 0 auto;
   width: 100%;
-  background: var(--glass);
-  border: 1rpx solid var(--border);
-  border-radius: 20rpx;
-  padding: 16rpx 0;
-  text-align: center;
-  font-size: 30rpx;
-  color: var(--fg);
-  font-family: Menlo, Consolas, monospace;
-}
-
-/* ---------------- 导入文本框 ---------------- */
-.ta {
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 240rpx;
-  margin-top: 20rpx;
-  background: var(--glass);
-  border: 1rpx solid var(--border);
-  border-radius: 24rpx;
-  padding: 20rpx 24rpx;
-  font-size: 22rpx;
-  line-height: 1.6;
-  color: var(--fg);
-}
-.ta-placeholder { color: var(--mut2); }
-
-/* ---------------- 长弹层（使用指南） ---------------- */
-.dialog-scroll {
+  padding: 24px 16px;
   display: flex;
   flex-direction: column;
-  max-height: 86vh;
+  gap: 24px; /* grid gap-6 */
 }
-.dialog-body {
-  flex: none;
-  height: 54vh;
-  margin-top: 20rpx;
-  box-sizing: border-box;
+.foot text { display: block; }
+.lh-relaxed { line-height: 1.7; }
+
+/* ---------- 使用说明头 ---------- */
+.s-guide-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
 }
-.guide-sec + .guide-sec { margin-top: 30rpx; }
-.guide-h {
-  display: block;
-  font-size: 28rpx;
-  font-weight: 600;
-  margin-bottom: 8rpx;
-}
-.guide-p {
-  display: block;
-  font-size: 24rpx;
-  line-height: 1.75;
-  color: var(--fg);
-  opacity: 0.88;
-}
-.guide-li {
-  display: block;
-  font-size: 24rpx;
-  line-height: 1.7;
-  color: var(--fg);
-  opacity: 0.72;
-  margin-top: 6rpx;
+.s-caret { font-size: 18px; line-height: 1; }
+.g-sec + .g-sec { margin-top: 16px; }
+.g-h { margin-bottom: 6px; }
+.g-p { color: var(--ink-mut); }
+.g-p + .g-p { margin-top: 6px; }
+.card-sep {
+  height: 1px;
+  background: var(--hairline);
+  margin: 16px 0; /* border-t my-4 近似 */
 }
 
-/* ---------------- 更新日志 ---------------- */
+/* ---------- 开关行 ---------- */
+.sw-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+  padding: 4px 0;
+}
+.sw-row + .sw-row { margin-top: 2px; }
+
+/* ---------- 分段选择（seg） ---------- */
+.seg-pair {
+  display: flex;
+  gap: 8px; /* gap-2 */
+}
+.sseg {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px; /* px-3 py-2.5 */
+  border-radius: 16px; /* rounded-2xl */
+  font-size: 14px; /* text-sm */
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  color: var(--ink);
+  text-align: center;
+}
+.sseg.sel {
+  background: var(--card-bg-strong);
+  font-weight: 600;
+}
+
+/* ---------- 呼吸节奏 chips ---------- */
+.chip {
+  padding: 6px 12px; /* px-3 py-1.5 */
+  border-radius: 999px;
+  font-size: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  color: var(--ink);
+}
+.chip.sel {
+  background: var(--card-bg-strong);
+  font-weight: 600;
+}
+
+/* ---------- 动作按钮（外观 / 数据） ---------- */
+.act {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  border-radius: 16px; /* rounded-2xl */
+  padding: 12px 16px; /* px-4 py-3 */
+  font-size: 14px;
+  text-align: center;
+  color: var(--ink);
+  line-height: 1.4;
+}
+.act:active { opacity: 0.72; }
+.act.danger {
+  color: var(--destructive);
+  border-color: var(--destructive);
+  opacity: 0.9;
+}
+
+/* ---------- 自动计数间隔 ---------- */
+.s-inset {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 12px;
+  margin: 6px 0 4px;
+}
+.s-num {
+  width: 72px; /* w-18 近似（数字输入） */
+  background: var(--card-bg-strong);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 6px 8px;
+  font-size: 14px;
+  text-align: center;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 自定义呼吸网格 ---------- */
+.custom-grid {
+  display: flex;
+  gap: 8px; /* gap-2 grid-cols-4 */
+}
+.c-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.c-inp {
+  width: 100%;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px; /* rounded-xl */
+  padding: 6px 8px;
+  font-size: 16px;
+  text-align: center;
+  color: var(--ink);
+}
+
+/* ---------- 弹层内 ---------- */
+.s-reset-input {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 24px;
+  padding: 10px 16px;
+  font-size: 14px;
+  width: 100%;
+  color: var(--ink);
+}
+.ok-text { color: var(--accent, #4a79b8); }
+.s-log-sec + .s-log-sec { margin-top: 16px; }
 .log-date {
-  display: block;
-  font-size: 24rpx;
+  font-size: 12px;
   font-weight: 600;
-  margin-bottom: 6rpx;
+  margin-bottom: 4px;
+  color: var(--ink);
 }
-
-/* ---------------- 状态 ---------------- */
-.ok { color: #07c160; font-size: 20rpx; }
-.disabled { opacity: 0.4; }
+.s-log { padding: 2px 0 2px 8px; }

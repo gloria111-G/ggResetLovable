@@ -1,86 +1,133 @@
-/* 数据中心 */
+/* 数据中心（对应 Web data.tsx：TotalCard / MonthCard / DayDetailModal） */
+
+.d-page {
+  max-width: 1024px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 24px 16px;
+}
+
+/* ---------- 累计 ---------- */
+.d-num {
+  font-size: 48px; /* text-5xl */
+  line-height: 1.1;
+}
+.d-stack .d-bar-row + .d-bar-row {
+  margin-top: 8px; /* space-y-2 */
+}
+.d-bar-row {
+  gap: 8px; /* gap-2 */
+  font-size: 12px;
+}
+.d-tag {
+  width: 80px; /* w-20 */
+  flex-shrink: 0;
+  color: var(--ink-mut);
+}
 .bar-track {
   flex: 1;
-  height: 12rpx;
-  border-radius: 999rpx;
-  background: var(--glass);
-  border: 1rpx solid var(--border);
+  height: 8px; /* h-2 */
+  border-radius: 999px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   overflow: hidden;
 }
 .bar-fill {
   height: 100%;
-  border-radius: 999rpx;
-  opacity: .55;
+  border-radius: 999px;
+  background: var(--ink);
+  opacity: 0.4; /* bg-current opacity-40 */
+}
+.d-count {
+  width: 32px; /* w-8 */
+  text-align: right;
+  color: var(--ink);
 }
 
+/* ---------- 近 30 天 摘要 ---------- */
+.d-sumline {
+  text-align: right;
+}
+.d-sumline text { margin: 0 2px; }
+
+/* ---------- 打卡日历 ---------- */
 .heat-week {
   display: flex;
 }
 .heat-wd {
-  width: calc(100% / 7);
+  width: calc((100% - 24px) / 7); /* grid-cols-7 gap-1(4px) */
+  margin-right: 4px;
   text-align: center;
-  font-size: 18rpx;
-  color: var(--mut2);
+  font-size: 10px;
+  opacity: 0.5;
+  margin-bottom: 4px;
 }
+.heat-wd:last-child { margin-right: 0; }
 .heat-grid {
   display: flex;
   flex-wrap: wrap;
-  margin-top: 10rpx;
 }
 .heat-cell {
-  width: calc(100% / 7);
-  padding: 6rpx;
-  box-sizing: border-box;
-}
-.heat-cell > view {
-  width: 100%;
-  height: 78rpx;
-  border-radius: 14rpx;
-  background: var(--glass);
-  border: 1rpx solid var(--border);
+  width: calc((100% - 24px) / 7);
+  margin-right: 4px;
+  margin-bottom: 4px;
+  aspect-ratio: 1 / 1; /* aspect-square */
+  min-height: 36px;
+  border-radius: 8px; /* rounded-lg */
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
   display: flex;
   align-items: center;
   justify-content: center;
 }
+.heat-cell:nth-child(7n) { margin-right: 0; }
 .heat-num {
-  font-size: 18rpx;
-  color: var(--mut2);
+  font-size: 10px;
+  color: var(--ink-dim);
 }
 .heat-num.on {
-  color: var(--fg);
-  font-weight: 600;
+  color: var(--ink);
+  font-weight: 500;
 }
 
+/* 图例 */
 .heat-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px; /* gap-2 */
+  margin-top: 12px; /* mt-3 */
+}
+.lg-item {
   display: inline-flex;
   align-items: center;
-  gap: 8rpx;
-  font-size: 18rpx;
-  color: var(--mut);
-  margin-right: 18rpx;
+  gap: 4px;
 }
-.heat-dot {
-  width: 14rpx;
-  height: 14rpx;
-  border-radius: 50%;
+.lg-dot {
+  width: 8px; /* size-2 */
+  height: 8px;
+  border-radius: 999px;
 }
 
+/* ---------- 时间分配饼图 ---------- */
 .pie-canvas {
-  width: 300rpx;
-  height: 300rpx;
+  width: 160px; /* size-40 */
+  height: 160px;
   flex: none;
 }
+.d-pielegend { min-width: 0; }
 .pie-row {
   display: flex;
   align-items: center;
-  gap: 10rpx;
-  font-size: 20rpx;
-  padding: 6rpx 0;
+  gap: 8px;
+  font-size: 12px;
+  padding: 4px 0;
 }
+.pie-row + .pie-row { margin-top: 0; } /* space-y-1.5 近似 6px，由 padding 提供 */
 .pie-dot {
-  width: 18rpx;
-  height: 18rpx;
-  border-radius: 6rpx;
+  width: 10px; /* size-2.5 */
+  height: 10px;
+  border-radius: 2px; /* rounded-sm */
   flex: none;
 }
 .pie-tag {
@@ -88,6 +135,33 @@
   min-width: 0;
 }
 .pie-v {
-  font-size: 20rpx;
+  color: var(--ink-mut);
   font-variant-numeric: tabular-nums;
+  flex: none;
 }
+
+/* ---------- 单日明细弹层 ---------- */
+.dlg-sm {
+  max-width: 448px; /* max-w-md */
+}
+.d-mini {
+  flex: 1;
+  border-radius: 16px; /* rounded-2xl */
+  padding: 12px; /* p-3 */
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.d-day-row {
+  gap: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px; /* rounded-xl */
+  padding: 8px 12px;
+  font-size: 12px;
+}
+.d-day-row + .d-day-row { margin-top: 6px; }
+
+/* 底部声明（块级分行） */
+.foot text { display: block; }
