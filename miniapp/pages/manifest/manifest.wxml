@@ -86,7 +86,7 @@
       <!-- ============ 目标列表（Web Goals 卡） ============ -->
       <view class="glass card">
         <view class="serif ft-2xl mb1">目标列表</view>
-        <view class="ft-xs op-60 mb4">可用上下箭头调整顺序。</view>
+        <view class="ft-xs op-60 mb4">按住目标右侧「≡」上下拖动，可自由调整顺序。</view>
 
         <!-- 添加目标 -->
         <view class="row gap2 mb5">
@@ -107,15 +107,26 @@
 
         <!-- 进行中 -->
         <block wx:if="{{goalActive.length}}">
-          <view class="m-list">
-            <view class="mrow glass" wx:for="{{goalActive}}" wx:key="id">
+          <view class="m-list goal-list">
+            <view class="ft-xs op-60 mb4">按住目标右侧「≡」上下拖动，即可自由调整顺序。</view>
+            <view
+              class="mrow glass goal-row {{dragId === item.id ? 'goal-drag-on' : ''}}"
+              wx:for="{{goalActive}}"
+              wx:key="id"
+              style="transform: translateY({{item.dy || 0}}px);"
+            >
               <view class="gcheck" data-id="{{item.id}}" hover-class="pressed" bindtap="goalToggle"></view>
               <view class="flex-1 ft-sm m-text">{{item.text}}</view>
-              <view class="row gap1">
-                <view class="mini-ic" data-id="{{item.id}}" hover-class="pressed" bindtap="goalUp">▲</view>
-                <view class="mini-ic" data-id="{{item.id}}" hover-class="pressed" bindtap="goalDown">▼</view>
-                <view class="mini-ic danger-ic" data-id="{{item.id}}" hover-class="pressed" bindtap="goalDel">🗑</view>
-              </view>
+              <view class="mini-ic danger-ic" data-id="{{item.id}}" hover-class="pressed" bindtap="goalDel">🗑</view>
+              <view
+                class="goal-drag-ic"
+                data-id="{{item.id}}"
+                data-index="{{index}}"
+                catchtouchstart="goalDragStart"
+                catchtouchmove="goalDragMove"
+                catchtouchend="goalDragEnd"
+                catchtouchcancel="goalDragEnd"
+              >≡</view>
             </view>
           </view>
         </block>

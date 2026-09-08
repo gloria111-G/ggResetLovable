@@ -226,12 +226,31 @@ Page({
     const active = [];
     goals.forEach((g) => {
       if (g.done) done.push(Object.assign({}, g, { doneAt: g.doneAt || 0 }));
-      else active.push(Object.assign({}, g));
+      else active.push(Object.assign({}, g, { dy: 0 }));
     });
-    this.setData({
-      goalActive: active,
-      goalDone: done.sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)),
-    });
+    this.setData(
+      {
+        goalActive: active,
+        goalDone: done.sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)),
+      },
+      () => this._measureRows(),
+    );
+  },
+  // 测量目标行实际行距（px），供拖拽换算使用
+  _measureRows() {
+    try {
+      wx.createSelectorQuery()
+        .in(this)
+        .selectAll('.goal-list .goal-row')
+        .boundingClientRect((rects) => {
+          if (!rects || rects.length < 1) return;
+          this._rowStepPx = rects.length > 1 ? rects[1].top - rects[0].top : rects[0].height;
+          this._rowHpx = rects[0].height;
+        })
+        .exec();
+    } catch (e) {
+      /* noop */
+    }
   },
   onGoalInput(e) {
     this.setData({ addInput: e.detail.value });
@@ -269,34 +288,86 @@ Page({
       setTimeout(() => this.setData({ celebrating: false }), 2200);
     }
   },
-  _reorderActive(delta) {
-    const active = this.data.goalActive;
-    const id = this._activeMovedId;
-    const idx = active.findIndex((x) => x.id === id);
-    const targetIdx = idx + delta;
-    if (idx < 0 || targetIdx < 0 || targetIdx >= active.length) return;
-    const targetId = active[targetIdx].id;
-    const sorted = store
-      .getGoals()
-      .map((g) => Object.assign({}, g))
-      .sort((a, b) => (a.order || 0) - (b.order || 0));
-    const mi = sorted.findIndex((g) => g.id === id);
-    const ti = sorted.findIndex((g) => g.id === targetId);
-    if (mi < 0 || ti < 0) return;
-    const tmp = sorted[mi];
-    sorted[mi] = sorted[ti];
-    sorted[ti] = tmp;
-    sorted.forEach((g, i) => { g.order = (i + 1) * 100; });
-    store.setGoals(sorted);
-    this.reloadGoals();
+  /* ---------- 拖拽排序（替代原上下箭头按钮） ---------- */
+  _clampIdx(v, len) {
+    return Math.max(0, Math.min(len - 1, v));
   },
-  goalUp(e) {
-    this._activeMovedId = e.currentTarget.dataset.id;
-    this._reorderActive(-1);
+  _rowStep() {
+    if (!this._rowStepPx) this._measureRows();
+    return this._rowStepPx || this._rowHpx || 56;
   },
-  goalDown(e) {
-    this._activeMovedId = e.currentTarget.dataset.id;
-    this._reorderActive(1);
+  _applyDragDy(list, d, dy) {
+    const step = this._rowStep();
+    const hover = d.hover == null ? d.idx : d.hover;
+    const next = list.map((g, i) => {
+      if (g.id === d.id) return Object.assign({}, g, { dy });
+      let shift = 0;
+      if (d.idx < hover) {
+        if (i > d.idx && i <= hover) shift = -step;
+      } else if (d.idx > hover) {
+        if (i >= hover && i < d.idx) shift = step;
+      }
+      return Object.assign({}, g, { dy: shift });
+    });
+    this.setData({ goalActive: next });
+  },
+  goalDragStart(e) {
+    const list = this.data.goalActive;
+    if (list.length < 2) return;
+    const id = e.currentTarget.dataset.id;
+    const idx = Number(e.currentTarget.dataset.index);
+    const t = e.touches && e.touches[0];
+    if (!t || isNaN(idx)) return;
+    this._measureRows();
+    this._drag = { id, idx, startY: t.pageY, moved: false, hover: idx };
+    this.setData({ dragId: id });
+  },
+  goalDragMove(e) {
+    const d = this._drag;
+    const list = this.data.goalActive;
+    if (!d || list.length < 2) return;
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    const dy = t.pageY - d.startY;
+    if (!d.moved) {
+      if (Math.abs(dy) < 4) return;
+      d.moved = true;
+      try {
+        wx.vibrateShort({ type: 'light', fail: () => {} });
+      } catch (e2) {
+        /* noop */
+      }
+    }
+    d.hover = this._clampIdx(d.idx + Math.round(dy / this._rowStep()), list.length);
+    this._applyDragDy(list, d, dy);
+  },
+  goalDragEnd() {
+    const d = this._drag;
+    if (!d) return;
+    this._drag = null;
+    const list = this.data.goalActive.slice();
+    if (!d.moved) {
+      // 仅按下未拖动：取消并复位
+      this.setData({
+        dragId: '',
+        goalActive: list.map((g) => Object.assign({}, g, { dy: 0 })),
+      });
+      return;
+    }
+    const hover = this._clampIdx(d.hover == null ? d.idx : d.hover, list.length);
+    const item = list.splice(d.idx, 1)[0];
+    list.splice(hover, 0, item);
+    list.forEach((g) => { g.dy = 0; });
+    // 持久化新顺序
+    const ids = list.map((g) => g.id);
+    store.setGoals(
+      store.getGoals().map((g) => {
+        if (g.done) return g;
+        const pos = ids.indexOf(g.id);
+        return Object.assign({}, g, { order: (pos + 1) * 100 });
+      }),
+    );
+    this.setData({ dragId: '', goalActive: list });
   },
   goalDel(e) {
     const id = e.currentTarget.dataset.id;

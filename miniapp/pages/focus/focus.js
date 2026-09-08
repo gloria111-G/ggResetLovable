@@ -204,7 +204,7 @@ Page({
       this.setData({
         tab: 'breath',
         breathLabel: label,
-        phaseLabel: ph.length ? '轻触开始' : '呼吸模式未开启',
+        phaseLabel: ph.length ? '准备' : '呼吸模式未开启',
         isTimer: s.breathTimerMode !== 'stopwatch',
       });
     } else {
@@ -257,7 +257,7 @@ Page({
     });
     if (this.data.tab === 'breath') {
       const ph = buildPhases(s);
-      this.setData({ phaseLabel: ph.length ? '轻触开始' : '呼吸模式未开启', isTimer: s.breathTimerMode !== 'stopwatch' });
+      this.setData({ phaseLabel: ph.length ? '准备' : '呼吸模式未开启', isTimer: s.breathTimerMode !== 'stopwatch' });
     } else {
       this._loadAffirmSelection();
     }
@@ -624,9 +624,10 @@ Page({
     const s = store.getSettings();
     const now = Date.now();
     if (kind === 'affirm') {
-      // 自动计数：按设置间隔
-      const intervalSec = s.autoCountEnabled ? Math.max(0.1, s.autoCountInterval || 1) : 0;
-      if (this.data.autoOn && intervalSec > 0 && !e.isTimer) {
+      // 自动计数：开关开启且计时（倒计时 / 正计时）运行中时，按设置间隔自动 +1；
+      // 未开启计时器（e.running 为 false / 未 start）不会触发任何自动计数
+      if (this.data.autoOn && e.running) {
+        const intervalSec = Math.max(0.1, Number(s.autoCountInterval) || Number(this.data.autoInterval) || 1);
         const since = (now - this._autoLast) / 1000;
         if (since >= intervalSec) {
           const n = Math.floor(since / intervalSec);
@@ -717,7 +718,10 @@ Page({
     this._stopTicker();
     this._stopPhaseTimer();
     this._saveBreathSession(null);
-    this.setData({ running: false, paused: false, elapsed: 0, clock: '00:00', showDurPanel: true, celebration: false });
+    this.setData({
+      running: false, paused: false, elapsed: 0, clock: '00:00', showDurPanel: true, celebration: false,
+      ballCss: 'transform:scale(1);transition:transform 0.3s ease', phaseLabel: '准备',
+    });
     if (secs > 0) this._saveDurationLog(secs, 'breath');
     if (secs > 0) {
       this.setData({ celebration: true, celebrationText: '呼吸练习完成 · ' + util.fmtClock(secs, true) });
@@ -797,9 +801,9 @@ Page({
       const label = PHASE_LABEL[p.kind];
       let target = 1;
       const prev = phases[(this._phaseIdx - 1 + phases.length) % phases.length];
-      if (p.kind === 'in') target = 1.35;
+      if (p.kind === 'in') target = 1.22;
       else if (p.kind === 'out') target = 0.7;
-      else target = prev.kind === 'in' ? 1.35 : prev.kind === 'out' ? 0.7 : 1;
+      else target = prev.kind === 'in' ? 1.22 : prev.kind === 'out' ? 0.7 : 1;
       const trans = 'transform ' + p.sec + 's ' + (p.kind === 'hold' ? 'linear' : 'cubic-bezier(0.42,0,0.58,1)');
       this.setData({
         phaseLabel: label,
@@ -830,7 +834,10 @@ Page({
     this._stopTicker();
     this._stopPhaseTimer();
     this._saveBreathSession(null);
-    this.setData({ running: false, paused: false, clock: '00:00', showDurPanel: true, celebration: false });
+    this.setData({
+      running: false, paused: false, clock: '00:00', showDurPanel: true, celebration: false,
+      ballCss: 'transform:scale(1);transition:transform 0.3s ease', phaseLabel: '准备',
+    });
     if (secs > 0) {
       this._saveDurationLog(secs, 'breath');
       this.setData({ celebration: true, celebrationText: '呼吸练习完成 · ' + util.fmtClock(secs, true) });
@@ -849,7 +856,7 @@ Page({
     this._engine = null;
     this.setData({
       running: false, paused: false, clock: '00:00', showDurPanel: true,
-      ballCss: 'transform:scale(1);transition:transform 0.4s linear', phaseLabel: '轻触开始',
+      ballCss: 'transform:scale(1);transition:transform 0.3s ease', phaseLabel: '准备',
     });
   },
 

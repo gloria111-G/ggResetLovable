@@ -179,14 +179,16 @@
     ============================================================ -->
     <block wx:if="{{tab === 'breath' && showBreath}}">
       <!-- 呼吸球 -->
-      <view class="glass f-card center">
-        <view class="breath-holder">
+      <view class="glass f-card breath-card">
+        <view class="breath-holder center">
           <view class="breath-ball" style="{{ballCss}}">
             <text class="phase-text serif">{{phaseLabel}}</text>
           </view>
         </view>
-        <view class="ft-xs dim mt4">呼吸模式：{{breathLabel}}</view>
-        <view class="ft-10 dim mt2">跟随球体节奏：吸气 → 屏息 → 呼气</view>
+        <view class="breath-meta">
+          <view class="breath-mode">呼吸模式：{{breathLabel}}</view>
+          <view class="breath-tip">跟随球体节奏：吸气 → 屏息 → 呼气</view>
+        </view>
       </view>
 
       <!-- 身心放松指南 -->
