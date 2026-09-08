@@ -36,6 +36,7 @@ const DEFAULT_SETTINGS = {
   focusDuration: 300,
   breathFocusDuration: 300,
   whiteNoise: 'off', // off | waves | fire | rain
+  whiteNoiseVolume: 0.6, // 白噪音独立音量 0-1（与计数器提示音互不影响）
   timerMode: 'countdown',
   affirmTimerMode: 'countdown',
   breathTimerMode: 'countdown',

@@ -68,6 +68,7 @@ Page({
     showCounter: true,
     sound: false,
     noiseOn: 'off',
+    noiseVolume: 60, // 白噪音独立音量 0-100
     noiseTracks: NOISE_TRACKS,
     relaxIntro: RELAX_INTRO,
     tips: TIPS,
@@ -136,13 +137,18 @@ Page({
     this._engine = null; // {kind:'affirm'|'breath', ...}
     this._phaseTimer = null;
     this._ticker = null;
+    this._sums = null; // 徽标增量缓存（避免每次 +1 遍历日志）
     const s = store.getSettings();
+    this._lastAffirmMode = s.affirmTimerMode; // 记录当前计时模式，外部切换后据此清理残留引擎
     this._applySettings(s, true);
   },
   onShow() {
     if (this._destroyed) return;
     const s = store.getSettings();
     this._applySettings(s, false);
+    // 若用户在设置页切换了「倒计时 / 正计时」，先清掉残留的旧模式引擎与会话，
+    // 避免点击【开始】沿用上一段倒计时的 05:00 等初始状态
+    this._checkAffirmModeChange();
     this._refreshAfterReturn();
     this._restoreSession();
     this._maybeSyncWheel();
@@ -171,6 +177,7 @@ Page({
       showCounter: s.showCounter !== false,
       sound: !!s.sound,
       noiseOn: s.whiteNoise || 'off',
+      noiseVolume: Math.round((Number(s.whiteNoiseVolume) >= 0 ? Number(s.whiteNoiseVolume) : 0.6) * 100),
       resetEnabled: !!s.resetCounterEnabled,
       autoEnabled: !!s.autoCountEnabled,
       autoInterval: Math.max(1, s.autoCountInterval || 1),
@@ -327,15 +334,16 @@ Page({
     if (aff) cumSum = aff.count || 0;
     const cfg = store.getSettings();
     const disp = cfg.counterMode === 'total' ? cumSum : todaySum;
+    this._sums = { today: todaySum, cum: cumSum }; // 缓存徽标，供 _addCount 增量更新
     this.setData({ todayBadge: todaySum, cumBadge: cumSum, countDisplay: disp });
   },
 
   /* ================= 计数 ================= */
-  _addCount(n, feedback) {
+  _addCount(n, feedback, vib) {
     if (n <= 0) return;
     const { selectedTag, selectedAff } = this.data;
     const s = store.getSettings();
-    // 更新 daily 日志
+    // 更新 daily 日志（一次写入；后台补足 n>1 也仅一次落库）
     store.setLogs(store.upsertDailyLog(store.getLogs(), {
       tag: selectedTag, affId: selectedAff || undefined, addCount: n, kind: 'affirm',
     }));
@@ -345,24 +353,24 @@ Page({
         store.getAffirmations().map((a) => (a.id === selectedAff ? Object.assign({}, a, { count: (a.count || 0) + n }) : a)),
       );
     }
-    if (feedback && this.data.sound) {
-      audio.playTick(false);
-      audio.vibrate();
-    }
+    // 提示音：手动/自动每次计数播一次；后台补足 n>1 只播一次（防止音效叠加刺耳）
+    if (feedback && this.data.sound) audio.playTick(false);
+    if (vib) audio.vibrate();
+    // 局部增量渲染：仅更新计数字段并复用徽标缓存，避免全量 setData + 日志遍历
+    if (!this._sums) this._recalcBadges();
+    const sums = this._sums || { today: 0, cum: 0 };
+    const todayBadge = sums.today + n;
+    const cumBadge = sums.cum + n;
+    sums.today = todayBadge;
+    sums.cum = cumBadge;
     const count = this.data.count + n;
-    const patch = { count, countDisplay: this._displayCount() };
-    // 进行中的时长不因切换数字而中断
-    if (this._engine && this._engine.count !== undefined) this._engine.count = count;
-    this.setData(patch);
-    this._recalcBadges();
+    const countDisplay = s.counterMode === 'total' ? cumBadge : todayBadge;
+    if (this._engine && this._engine.kind === 'affirm') this._engine.count = count;
+    this.setData({ count, countDisplay, todayBadge, cumBadge });
   },
   countTap() {
     if (!this.data.showCounter) return;
-    this._addCount(1, true);
-  },
-  _displayCount() {
-    const s = store.getSettings();
-    return s.counterMode === 'total' ? this.data.cumBadge : this.data.count;
+    this._addCount(1, true, true);
   },
 
   /* ================= 肯定语计时引擎 ================= */
@@ -382,6 +390,11 @@ Page({
       running: false,
       count: this.data.count,
       finished: false,
+      // 自动计数时间戳锚点：autoStartBase 记录「开启自动计数时」的已运行秒，
+      // autoFired 记录已执行次数，切后台/回前台用 (now-anchor)/interval 精确补足
+      autoActive: false,
+      autoStartBase: 0,
+      autoFired: 0,
     };
     this._engine = e;
     this.setData({
@@ -389,7 +402,7 @@ Page({
       paused: false,
       elapsed: 0,
       total,
-      clock: util.fmtClock(0),
+      clock: '00:00', // 正计时首帧固定 00:00，避免沿用上一段倒计时残留（如 05:00）
       isTimer,
       showDurPanel: true,
     });
@@ -397,12 +410,21 @@ Page({
   },
   startAffirm() {
     const s = store.getSettings();
-    const e = this._engine && this._engine.kind === 'affirm' ? this._engine : this._makeAffirmEngine(s);
+    // 每次「开始」都重建引擎：彻底清空上一段倒计时/正计时残留的初始状态，保证首帧 00:00 流畅累加
+    const e = this._makeAffirmEngine(s);
     const total = e.total || this._affirmDefaultTotal(s);
     e.total = total;
     e.startedAt = Date.now();
     e.running = true;
-    this.setData({ running: true, paused: false, total, showDurPanel: false, elapsed: 0, clock: util.fmtClock(total) });
+    e.autoActive = !!this.data.autoOn; // 开启自动计数时记录锚点
+    e.autoStartBase = 0;
+    e.autoFired = 0;
+    const isTimer = e.isTimer;
+    this.setData({
+      running: true, paused: false, total: e.total, isTimer, showDurPanel: false,
+      elapsed: 0,
+      clock: isTimer && e.total > 0 ? util.fmtClock(e.total) : '00:00',
+    });
     if (e.isTimer && total <= 0) return;
     this._startTicker('affirm');
     this._saveAffirmSession(e);
@@ -421,6 +443,16 @@ Page({
   resumeAffirm() {
     const e = this._engine;
     if (!e) return;
+    // 暂停期间若切换过自动计数开关，按当前开关校准（开启则重新以当前时刻为锚点）
+    if (this.data.autoOn && !e.autoActive) {
+      e.autoActive = true;
+      e.autoStartBase = this._autoRunSecs(e, Date.now());
+      e.autoFired = 0;
+    } else if (!this.data.autoOn && e.autoActive) {
+      e.autoActive = false;
+      e.autoFired = 0;
+      e.autoStartBase = 0;
+    }
     e.startedAt = Date.now();
     e.running = true;
     this.setData({ running: true, paused: false, showDurPanel: false });
@@ -509,6 +541,12 @@ Page({
       tab: 'affirm',
       tag: this.data.selectedTag,
       affId: this.data.selectedAff,
+      // 持久化自动计数补偿状态：切回前台/重新打开时按时间戳精确补足
+      auto: {
+        active: !!e.autoActive,
+        startBase: e.autoStartBase || 0,
+        fired: e.autoFired || 0,
+      },
     });
   },
   /** 恢复上次会话（页面重新打开时） */
@@ -553,30 +591,43 @@ Page({
         this._selectAff(session.affId, store.getAffirmations(), true);
       }
       const now = Date.now();
+      const settings = store.getSettings();
+      const autoState = session.auto;
+      const autoActive = autoState ? !!autoState.active : !!settings.autoCountEnabled;
+      const autoStartBase = autoState ? Number(autoState.startBase) || 0 : 0;
+      const autoFired = autoState ? Number(autoState.fired) || 0 : 0;
+      if (session.isTimer && session.total > 0) {
+        const gapTotal = session.running ? Math.max(0, (now - session.startedAt) / 1000) : 0;
+        if (session.base + gapTotal >= session.total) {
+          // 后台期间倒计时已走完：先按真实总时长补足自动计数（只播一次音效），再按完成处理
+          this._engine = {
+            kind: 'affirm', isTimer: true, total: session.total, base: session.total, startedAt: now,
+            running: false, count: session.count || 0, finished: true,
+            autoActive, autoStartBase, autoFired,
+          };
+          this.setData({ count: session.count || 0, countDisplay: session.count || 0, total: session.total });
+          this._syncAutoCount(this._engine, now, true);
+          const finalCount = this.data.count;
+          this._recalcBadges();
+          this._saveDurationLog(Math.round(session.total), 'affirm');
+          this._saveAffirmSession(null);
+          this.setData({
+            running: false, paused: false, showDurPanel: true, elapsed: 0, clock: '00:00',
+            celebration: true,
+            celebrationText: '完成 · ' + finalCount + ' 次肯定 · ' + util.fmtClock(session.total, true),
+          });
+          audio.playTick(true);
+          audio.vibrate();
+          setTimeout(() => {
+            if (!this._destroyed) this.setData({ celebration: false });
+          }, 3200);
+          this._engine = null;
+          this._recalcBadges();
+          return;
+        }
+      }
       const gap = session.running ? Math.max(0, (now - session.startedAt || now) / 1000) : 0;
       const base = session.base + gap;
-      if (session.isTimer && session.total > 0 && base >= session.total) {
-        // 后台期间已走完 -> 直接按完成处理（补写时长）
-        this._engine = {
-          kind: 'affirm', isTimer: true, total: session.total, base, startedAt: now, running: false, count: session.count, finished: true,
-        };
-        this.setData({ count: session.count, countDisplay: session.count, total: session.total });
-        this._recalcBadges();
-        this._saveDurationLog(Math.round(session.total), 'affirm');
-        this._saveAffirmSession(null);
-        this.setData({
-          running: false, paused: false, showDurPanel: true, elapsed: 0, clock: '00:00',
-          celebration: true,
-          celebrationText: '完成 · ' + session.count + ' 次肯定 · ' + util.fmtClock(session.total, true),
-        });
-        audio.playTick(true);
-        setTimeout(() => {
-          if (!this._destroyed) this.setData({ celebration: false });
-        }, 3200);
-        this._engine = null;
-        this._recalcBadges();
-        return;
-      }
       const e = {
         kind: 'affirm',
         isTimer: session.isTimer,
@@ -586,6 +637,9 @@ Page({
         running: session.running,
         count: session.count || 0,
         finished: false,
+        autoActive,
+        autoStartBase,
+        autoFired,
       };
       this._engine = e;
       this.setData({
@@ -597,19 +651,74 @@ Page({
         total: e.total,
         clock: this._clockText(e, true),
         showDurPanel: !session.running && base === 0,
+        autoOn: e.autoActive,
       });
-      if (session.running) this._startTicker('affirm');
-      this._recalcBadges();
+      if (session.running) {
+        // 先重算徽标缓存（应对切页期间外部计数），再用时间戳差瞬间补足后台漏掉的自动计数（如 22 秒对齐到 22 次）
+        this._recalcBadges();
+        if (e.autoActive) this._syncAutoCount(e, now);
+        this._startTicker('affirm');
+      } else {
+        this._recalcBadges();
+      }
     } else {
       this._resumeBreathSession(session);
     }
+  },
+
+  /* ================= 计时模式切换检查 ================= */
+  _checkAffirmModeChange() {
+    const mode = store.getSettings().affirmTimerMode;
+    if (mode === this._lastAffirmMode) return;
+    this._lastAffirmMode = mode;
+    const e = this._engine;
+    const hasSession = !!store.getActiveSession('affirm');
+    if (hasSession) store.saveActiveSession('affirm', null);
+    if (e && e.kind === 'affirm') {
+      this._stopTicker();
+      this._stopPhaseTimer();
+      this._engine = null;
+    }
+    // 清空旧模式残留的初始状态，正计时开始首帧固定 00:00
+    this.setData({
+      running: false, paused: false, elapsed: 0, total: 0,
+      clock: '00:00', count: 0, showDurPanel: true,
+    });
+    this._recalcBadges();
+  },
+
+  /* ================= 自动计数（时间戳差补偿，不依赖 setInterval 计数） ================= */
+  /** 引擎已计入的「实际运行秒」（含进行中部分，后台冻结期由 base/墙钟补齐） */
+  _autoRunSecs(e, now) {
+    if (!e) return 0;
+    return (e.base || 0) + (e.running ? (now - (e.startedAt || now)) / 1000 : 0);
+  },
+  /**
+   * 自动计数补偿核心：后台/切回不依赖定时器已执行次数，
+   * 以开启自动计数时锚点 autoStartBase 与墙钟差值重算应达总次数：
+   *   expected = floor((runSec - autoStartBase) / interval)
+   * 只补差额并统一播放一次提示音（n>1 时不叠加多次音效）。
+   */
+  _syncAutoCount(e, now, allowStopped) {
+    if (!e || e.kind !== 'affirm') return 0;
+    if (!e.autoActive) return 0;
+    if (!e.running && !allowStopped) return 0;
+    const s = store.getSettings();
+    const intervalSec = Math.max(0.1, Number(s.autoCountInterval) || Number(this.data.autoInterval) || 1);
+    const runSec = Math.max(0, this._autoRunSecs(e, now) - (e.autoStartBase || 0));
+    const expected = Math.floor(runSec / intervalSec);
+    const n = Math.max(0, expected - (e.autoFired || 0));
+    if (n <= 0) return 0;
+    e.autoFired = expected;
+    // 每触发一次自动计数 = 播一次提示音；补足 n>1 时 _addCount 内部只播一次，防叠加
+    this._addCount(n, true, false);
+    return n;
   },
 
   /* ================= 自动计数 ticker ================= */
   _startTicker(kind) {
     this._stopTicker();
     const self = this;
-    this._autoLast = Date.now();
     this._ticker = setInterval(() => self._tick(kind), 200);
   },
   _stopTicker() {
@@ -621,21 +730,11 @@ Page({
   _tick(kind) {
     const e = this._engine;
     if (!e || !e.running) return;
-    const s = store.getSettings();
     const now = Date.now();
     if (kind === 'affirm') {
-      // 自动计数：开关开启且计时（倒计时 / 正计时）运行中时，按设置间隔自动 +1；
-      // 未开启计时器（e.running 为 false / 未 start）不会触发任何自动计数
-      if (this.data.autoOn && e.running) {
-        const intervalSec = Math.max(0.1, Number(s.autoCountInterval) || Number(this.data.autoInterval) || 1);
-        const since = (now - this._autoLast) / 1000;
-        if (since >= intervalSec) {
-          const n = Math.floor(since / intervalSec);
-          this._autoLast += n * intervalSec * 1000;
-          this._addCount(n, false);
-        }
-      }
-      if (e.isTimer) {
+      // 自动计数：开关开启且计时器运行中时按间隔触发（倒计时 / 正计时均生效）
+      if (this.data.autoOn && e.autoActive) this._syncAutoCount(e, now);
+      if (e.isTimer && e.total > 0) {
         const elapsed = e.base + (now - e.startedAt) / 1000;
         if (elapsed >= e.total) {
           // 倒计时结束
@@ -643,9 +742,11 @@ Page({
           this.finishAffirm(false);
           return;
         }
-        this.setData({ clock: util.fmtClock(Math.max(0, e.total - Math.floor(elapsed))) });
+        const next = util.fmtClock(Math.max(0, e.total - Math.floor(elapsed)));
+        if (next !== this.data.clock) this.setData({ clock: next }); // 仅秒级变化才渲染
       } else {
-        this.setData({ clock: util.fmtClock(Math.floor(e.base + (now - e.startedAt) / 1000)) });
+        const next = util.fmtClock(Math.floor(e.base + (now - e.startedAt) / 1000));
+        if (next !== this.data.clock) this.setData({ clock: next });
       }
     } else {
       // 呼吸：倒计时 / 顺计时展示
@@ -655,11 +756,10 @@ Page({
         this._endBreath();
         return;
       }
-      this.setData({
-        clock: e.isTimer && e.total > 0
-          ? util.fmtClock(Math.max(0, e.total - Math.floor(elapsed)))
-          : util.fmtClock(Math.floor(elapsed)),
-      });
+      const next = e.isTimer && e.total > 0
+        ? util.fmtClock(Math.max(0, e.total - Math.floor(elapsed)))
+        : util.fmtClock(Math.floor(elapsed));
+      if (next !== this.data.clock) this.setData({ clock: next });
     }
   },
 
@@ -1008,6 +1108,20 @@ Page({
   autoSwitch(e) {
     const on = e.detail.value;
     this.setData({ autoOn: on });
+    const eng = this._engine;
+    // 运行/暂停中的引擎：开启即记录当前时刻锚点（只计开启之后的时间），关闭即停止
+    if (eng && eng.kind === 'affirm' && !eng.finished) {
+      if (on && !eng.autoActive) {
+        eng.autoActive = true;
+        eng.autoStartBase = this._autoRunSecs(eng, Date.now());
+        eng.autoFired = 0;
+      } else if (!on && eng.autoActive) {
+        eng.autoActive = false;
+        eng.autoStartBase = 0;
+        eng.autoFired = 0;
+      }
+      this._saveAffirmSession(eng);
+    }
     if (on && !this.data.autoEnabled) {
       wx.showToast({ title: '自动计数已开（可去设置调间隔）', icon: 'none' });
     }
@@ -1031,6 +1145,20 @@ Page({
     store.patchSettings({ whiteNoise: key });
     audio.setWhiteNoise(key);
     this.setData({ noiseOn: key });
+  },
+  /** 拖动滑杆实时预览音量（不写存储，避免高频写入） */
+  noiseVolChanging(e) {
+    const v = Number(e.detail.value);
+    if (isNaN(v)) return;
+    audio.setWhiteNoiseVolume(v / 100, false);
+    this.setData({ noiseVolume: v });
+  },
+  /** 松开滑杆：持久化音量（只影响白噪音，不影响计数器提示音） */
+  noiseVolChange(e) {
+    const v = Number(e.detail.value);
+    if (isNaN(v)) return;
+    audio.setWhiteNoiseVolume(v / 100, true);
+    this.setData({ noiseVolume: v });
   },
   soundSwitch(e) {
     const v = e.detail.value;

@@ -81,6 +81,7 @@
   font-weight: 400;
   line-height: 1.1;
   letter-spacing: 0.05em; /* tracking-wider */
+  font-variant-numeric: tabular-nums; /* 数字等宽：秒级跳动不产生横向抖动 */
   color: var(--ink);
   margin-top: 4px;
 }
@@ -214,6 +215,7 @@
   max-width: 78%;
   overflow: hidden;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums; /* 数字等宽：+1 时不产生横向闪烁 */
   color: var(--ink);
 }
 .cnt-plus {
@@ -385,6 +387,33 @@
   border: 2px solid var(--sel-border);
   font-weight: 600;
   box-shadow: var(--sel-shadow);
+}
+/* 白噪音独立音量（不影响计数器提示音） */
+.noise-vol {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+.noise-vol-label {
+  flex: none;
+  width: 28px;
+  font-size: 12px;
+  color: var(--ink);
+  opacity: 0.7;
+}
+.noise-vol-slider {
+  flex: 1;
+  margin: 0;
+}
+.noise-vol-val {
+  flex: none;
+  width: 40px;
+  text-align: right;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  opacity: 0.7;
 }
 
 /* ============ 底部提示 ============ */

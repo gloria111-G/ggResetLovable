@@ -107,14 +107,36 @@ function downloadToCache(name, url) {
 }
 
 /* ---------------- 白噪音 ---------------- */
+/** 读取设置中的白噪音音量（0-1），缺省 0.6 */
+function currentNoiseVolume() {
+  const s = store.getSettings();
+  const v = Number(s.whiteNoiseVolume);
+  return isNaN(v) ? 0.6 : Math.max(0, Math.min(1, v));
+}
 function ensureNoise() {
   if (!noise) {
     noise = wx.createInnerAudioContext();
     noise.loop = true;
     noise.obeyMuteSwitch = false;
+    noise.volume = currentNoiseVolume(); // 白噪音独立音量
     noise.onError((err) => onNoiseError(err));
   }
   return noise;
+}
+
+/** 独立调节白噪音音量（0-1），不触碰计数器滴答音量。persist=false 时仅即时生效（拖动预览） */
+function setWhiteNoiseVolume(vol, persist) {
+  const v = Math.max(0, Math.min(1, Number(vol)));
+  if (isNaN(v)) return;
+  if (persist !== false) store.patchSettings({ whiteNoiseVolume: v });
+  const el = noise;
+  if (el) {
+    try {
+      el.volume = v;
+    } catch (e) {
+      /* noop */
+    }
+  }
 }
 
 function safeStop(el) {
@@ -232,6 +254,7 @@ function vibrate() {
 module.exports = {
   reconcileFromSettings,
   setWhiteNoise,
+  setWhiteNoiseVolume,
   playTick,
   vibrate,
 };

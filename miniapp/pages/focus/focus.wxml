@@ -218,6 +218,23 @@
           bindtap="noiseTap"
         >{{item.icon ? item.icon + ' ' + item.label : item.label}}</view>
       </view>
+      <!-- 白噪音独立音量（与计数器提示音互不影响） -->
+      <view class="noise-vol" wx:if="{{noiseOn !== 'off'}}">
+        <text class="noise-vol-label">音量</text>
+        <slider
+          class="noise-vol-slider"
+          min="0"
+          max="100"
+          step="1"
+          value="{{noiseVolume}}"
+          activeColor="#1a5b82"
+          backgroundColor="rgba(120,140,160,0.25)"
+          block-size="18"
+          bindchanging="noiseVolChanging"
+          bindchange="noiseVolChange"
+        />
+        <text class="noise-vol-val">{{noiseVolume}}%</text>
+      </view>
     </view>
 
     <view class="f-hint">
