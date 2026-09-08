@@ -12,7 +12,7 @@
     "enhance": true,
     "postcss": true,
     "minified": true,
-    "urlCheck": true,
+    "urlCheck": false,
     "coverView": true,
     "lazyloadPlaceholderEnable": false,
     "preloadBackgroundData": false,
