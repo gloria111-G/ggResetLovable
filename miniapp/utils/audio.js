@@ -24,6 +24,13 @@
  *      - 首次成功播放后自动下载缓存到 USER_DATA_PATH，后续会话直接播缓存，
  *        弱网/断网也能即时出声（相当于离线预加载）；
  *      - 滴答音仅 5KB 级，首次使用时缓冲，失败静默跳过，不影响计数流程。
+ * 5. 白噪音后台播放（2026-09）：
+ *      - app.json 声明 requiredBackgroundModes: ["audio"] 后，
+ *        InnerAudioContext 在小程序切后台 / 锁屏时可持续播放；
+ *      - 不改用 BackgroundAudioManager：它没有 volume / loop 属性，
+ *        会破坏白噪音独立音量与循环播放；
+ *      - wx.setInnerAudioOption 全局开启 mixWithOther，避免抢占用户
+ *        自己在听的音乐；滴答音路径完全不变。
  */
 const store = require('./storage');
 
@@ -106,6 +113,27 @@ function downloadToCache(name, url) {
   }
 }
 
+/* ---------------- 后台播放支持 ---------------- */
+/**
+ * 全局音频选项：mixWithOther=true 让白噪音与用户自己的背景音乐共存，
+ * 不抢占系统音频焦点（否则会打断用户在听的歌）。
+ * requiredBackgroundModes: ["audio"]（app.json）使切后台/锁屏后继续播放。
+ */
+let audioOptionInited = false;
+function initAudioOptionOnce() {
+  if (audioOptionInited) return;
+  audioOptionInited = true;
+  try {
+    wx.setInnerAudioOption({
+      mixWithOther: true, // 与其他 App 音频混音，不抢占
+      obeyMuteSwitch: false, // 尊重此前各 context 的静音开关设定
+      fail: () => {},
+    });
+  } catch (e) {
+    /* noop */
+  }
+}
+
 /* ---------------- 白噪音 ---------------- */
 /** 读取设置中的白噪音音量（0-1），缺省 0.6 */
 function currentNoiseVolume() {
@@ -114,6 +142,7 @@ function currentNoiseVolume() {
   return isNaN(v) ? 0.6 : Math.max(0, Math.min(1, v));
 }
 function ensureNoise() {
+  initAudioOptionOnce();
   if (!noise) {
     noise = wx.createInnerAudioContext();
     noise.loop = true;
@@ -212,6 +241,7 @@ function onNoiseError() {
 
 /* ---------------- 滴答 / 震动 ---------------- */
 function ensureTick() {
+  initAudioOptionOnce();
   if (!tick) {
     tick = wx.createInnerAudioContext();
     tick.obeyMuteSwitch = false;
