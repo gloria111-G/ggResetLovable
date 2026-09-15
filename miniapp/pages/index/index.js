@@ -21,8 +21,8 @@ Page({
     guideShortcut: true,
     guide: GUIDE,
     tiles: [
-      { key: 'focus', glyph: '✦', label: '进入专注', sub: 'FOCUS · BREATHE', url: '/pages/focus/focus' },
-      { key: 'manifest', glyph: '✓', label: '目标列表', sub: 'LIST · AFFIRMATIONS', url: '/pages/manifest/manifest' },
+      { key: 'focus', glyph: '✦', label: '进入专注', sub: 'FOCUS', url: '/pages/focus/focus' },
+      { key: 'manifest', glyph: '✓', label: '目标列表', sub: 'LIST', url: '/pages/manifest/manifest' },
       { key: 'data', glyph: '▤', label: '数据中心', sub: 'INSIGHTS', url: '/pages/data/data' },
       { key: 'settings', glyph: '⚙', label: '设置', sub: 'PREFERENCES', url: '/pages/settings/settings' },
     ],

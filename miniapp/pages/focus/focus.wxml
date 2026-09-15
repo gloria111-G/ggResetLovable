@@ -177,6 +177,41 @@
     <!-- ============================================================
          呼吸调整 Tab
     ============================================================ -->
+    <!-- ============================================================
+         白噪音卡模板（两个 Tab 共用，对应 Web WhiteNoiseSelector）
+    ============================================================ -->
+    <template name="noiseCard">
+      <view class="glass f-card">
+        <view class="cap">白噪音</view>
+        <view class="noise-chips">
+          <view
+            wx:for="{{noiseTracks}}"
+            wx:key="key"
+            class="noise-chip {{noiseOn === item.key ? 'noise-on' : ''}}"
+            data-key="{{item.key}}"
+            bindtap="noiseTap"
+          >{{item.icon ? item.icon + ' ' + item.label : item.label}}</view>
+        </view>
+        <!-- 白噪音独立音量（与计数器提示音互不影响） -->
+        <view class="noise-vol" wx:if="{{noiseOn !== 'off'}}">
+          <text class="noise-vol-label">音量</text>
+          <slider
+            class="noise-vol-slider"
+            min="0"
+            max="100"
+            step="1"
+            value="{{noiseVolume}}"
+            activeColor="#1a5b82"
+            backgroundColor="rgba(120,140,160,0.25)"
+            block-size="18"
+            bindchanging="noiseVolChanging"
+            bindchange="noiseVolChange"
+          />
+          <text class="noise-vol-val">{{noiseVolume}}%</text>
+        </view>
+      </view>
+    </template>
+
     <block wx:if="{{tab === 'breath' && showBreath}}">
       <!-- 呼吸球 -->
       <view class="glass f-card breath-card">
@@ -191,6 +226,9 @@
         </view>
       </view>
 
+      <!-- 白噪音（呼吸球之下、放松指南之上） -->
+      <template is="noiseCard" />
+
       <!-- 身心放松指南 -->
       <view class="glass f-card">
         <view class="serif ft-xl relax-title">身心放松指南</view>
@@ -204,38 +242,10 @@
       </view>
     </block>
 
-    <!-- ============================================================
-         白噪音卡（两个 Tab 共用，对应 Web WhiteNoiseSelector）
-    ============================================================ -->
-    <view class="glass f-card">
-      <view class="cap">白噪音</view>
-      <view class="noise-chips">
-        <view
-          wx:for="{{noiseTracks}}"
-          wx:key="key"
-          class="noise-chip {{noiseOn === item.key ? 'noise-on' : ''}}"
-          data-key="{{item.key}}"
-          bindtap="noiseTap"
-        >{{item.icon ? item.icon + ' ' + item.label : item.label}}</view>
-      </view>
-      <!-- 白噪音独立音量（与计数器提示音互不影响） -->
-      <view class="noise-vol" wx:if="{{noiseOn !== 'off'}}">
-        <text class="noise-vol-label">音量</text>
-        <slider
-          class="noise-vol-slider"
-          min="0"
-          max="100"
-          step="1"
-          value="{{noiseVolume}}"
-          activeColor="#1a5b82"
-          backgroundColor="rgba(120,140,160,0.25)"
-          block-size="18"
-          bindchanging="noiseVolChanging"
-          bindchange="noiseVolChange"
-        />
-        <text class="noise-vol-val">{{noiseVolume}}%</text>
-      </view>
-    </view>
+    <!-- 白噪音卡（肯定语 Tab：保持页底位置；呼吸 Tab 已上移至呼吸球之下） -->
+    <block wx:if="{{tab !== 'breath' || !showBreath}}">
+      <template is="noiseCard" />
+    </block>
 
     <view class="f-hint">
       离开页面会自动保存进度，回来即可继续 · 计时与计数数据均保存在本机
