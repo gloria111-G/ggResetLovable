@@ -170,15 +170,14 @@
       <view class="serif ft-xl mb4">数据</view>
 
       <view class="row gap2 mb3">
-        <view class="act flex-1" hover-class="pressed" bindtap="doExport">导出数据文件</view>
+        <view class="act flex-1" hover-class="pressed" bindtap="doExport">导出到剪贴板</view>
         <view class="act flex-1" hover-class="pressed" bindtap="openImport">导入数据</view>
       </view>
       <view class="act danger flex-1" hover-class="pressed" bindtap="openReset">重置全部数据</view>
 
       <view class="ft-10 op-55 lh-relaxed mt4">
         所有数据仅保存在当前设备本地，从不上传、不分享。
-        导出生成 .json 备份文件，可发送给微信好友、文件传输助手或保存到手机。
-        转移设备：新设备收到文件后，打开复制其内容，用「导入数据」粘贴即可。
+        如需转移设备：先「导出」复制 JSON，再到新设备「导入」粘贴即可。
       </view>
     </view>
   </view>
@@ -212,7 +211,7 @@
       <view class="dialog-close" bindtap="closeImport">✕</view>
       <view class="serif ft-lg mb3">导入数据</view>
       <view class="ft-xs op-60 lh-relaxed mb4">
-        打开导出的 .json 备份文件，全选复制其内容粘贴到下方输入框。
+        先将另一台设备导出的 JSON 复制到剪贴板，再粘贴到下方输入框。
         导入将覆盖当前本地同名数据，请谨慎操作。
       </view>
       <textarea
@@ -237,7 +236,7 @@
       <view class="serif ft-lg mb3">重置全部数据？</view>
       <view class="ft-xs op-60 lh-relaxed mb4">
         此操作不可恢复。所有肯定语、目标、标签、专注记录与设置都会被清空。
-        建议先「导出数据文件」完成备份。
+        建议先「导出到剪贴板」完成备份。
       </view>
       <input
         class="s-reset-input mono mb3"

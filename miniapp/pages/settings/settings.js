@@ -200,61 +200,14 @@ Page({
   },
 
   /* ============ 数据导出 / 导入 / 重置 ============ */
-  /** 生成带时间戳的备份文件名：gg_reset_backup_20260916_1430.json */
-  _backupFileName() {
-    const d = new Date();
-    const p = (n) => (n < 10 ? '0' + n : '' + n);
-    return (
-      'gg_reset_backup_' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) +
-      '_' + p(d.getHours()) + p(d.getMinutes()) + '.json'
-    );
-  },
   doExport() {
-    const text = JSON.stringify(store.exportAll(), null, 2);
-    const fileName = this._backupFileName();
-    const filePath = wx.env.USER_DATA_PATH + '/' + fileName;
-    wx.showLoading({ title: '生成文件中', mask: true });
-    try {
-      wx.getFileSystemManager().writeFile({
-        filePath,
-        data: text,
-        encoding: 'utf8',
-        success: () => {
-          wx.hideLoading();
-          // 唤起微信原生文件分享：发送好友 / 文件传输助手 / 保存到手机
-          if (wx.shareFileMessage) {
-            wx.shareFileMessage({
-              filePath,
-              fileName,
-              success: () => {
-                wx.showToast({ title: '备份文件已发送', icon: 'success' });
-              },
-              fail: (err) => {
-                const msg = (err && err.errMsg) || '';
-                if (msg.indexOf('cancel') >= 0) return; // 用户主动取消分享,静默
-                this._exportFallback(text, '文件分享不可用,已改存剪贴板');
-              },
-            });
-          } else {
-            this._exportFallback(text, '当前微信版本过低,已改存剪贴板');
-          }
-        },
-        fail: (err) => {
-          wx.hideLoading();
-          wx.showToast({ title: '导出失败:' + ((err && err.errMsg) || '写入文件出错'), icon: 'none' });
-        },
-      });
-    } catch (err) {
-      wx.hideLoading();
-      wx.showToast({ title: '导出失败:' + ((err && err.message) || '未知错误'), icon: 'none' });
-    }
-  },
-  /** 兜底:老版本微信不支持 shareFileMessage 时退回剪贴板方案 */
-  _exportFallback(text, tip) {
+    const data = store.exportAll();
+    const text = JSON.stringify(data, null, 2);
     wx.setClipboardData({
       data: text,
-      success: () => wx.showToast({ title: tip, icon: 'none' }),
-      fail: () => wx.showToast({ title: '导出失败', icon: 'none' }),
+      success() {
+        wx.showToast({ title: '已复制数据到剪贴板', icon: 'success' });
+      },
     });
   },
   openImport() {
