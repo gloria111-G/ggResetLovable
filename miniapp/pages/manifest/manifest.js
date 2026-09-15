@@ -152,8 +152,8 @@ Page({
       a.id === id ? Object.assign({}, a, { tag: newTag }) : a,
     );
     store.setAffirmations(affs);
-    // 迁移历史日志 id 并合并同 id 冲突
-    let logs = store.getLogs();
+    // 迁移历史日志 id 并合并同 id 冲突（含冷归档层，setLogs 会自动重新分层）
+    let logs = store.getAllLogs();
     const remapped = logs.map((l) => {
       if (l.affirmationId !== id) return l;
       const kind = l.kind || 'affirm';

@@ -165,3 +165,66 @@
 
 /* 底部声明（块级分行） */
 .foot text { display: block; }
+
+/* ---------- 存储用量监控 ---------- */
+.usage-warn {
+  color: #c0392b;
+}
+.usage-track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  overflow: hidden;
+}
+.usage-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: #1a5b82;
+  opacity: 0.65;
+  transition: width 0.3s ease;
+}
+.usage-fill-warn {
+  background: #c0392b;
+  opacity: 0.8;
+}
+.usage-key-row + .usage-key-row {
+  margin-top: 6px;
+}
+.usage-key-name {
+  flex: none;
+  max-width: 128px;
+}
+.usage-key-bar {
+  flex: 1;
+  height: 6px;
+  margin: 0 8px;
+  border-radius: 999px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  overflow: hidden;
+}
+.usage-key-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ink);
+  opacity: 0.35;
+}
+.usage-key-kb {
+  flex: none;
+  width: 52px;
+  text-align: right;
+}
+.usage-btn {
+  text-align: center;
+  padding: 10px 0;
+  border-radius: 12px;
+  font-size: 13px;
+  color: #1a5b82;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+}
+.usage-btn:active {
+  opacity: 0.6;
+}

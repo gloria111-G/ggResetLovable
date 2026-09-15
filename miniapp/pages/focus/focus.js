@@ -316,7 +316,7 @@ Page({
     this._recalcBadges();
   },
   _recalcBadges() {
-    const logs = store.getLogs();
+    const logs = store.getAllLogs(); // 含冷归档：累计徽标需全量历史
     const today = store.todayKey();
     const { selectedTag, selectedAff } = this.data;
     let todaySum = 0;
@@ -1193,11 +1193,11 @@ Page({
       success: (res) => {
         if (!res.confirm) return;
         const scope = this._scopeId();
-        store.setLogs(store.getLogs().filter((l) => {
+        store.filterLogs((l) => {
           if (l.kind && l.kind !== 'affirm') return true;
           return !(l.date === store.todayKey() && l.tag === this.data.selectedTag &&
             (!this.data.selectedAff || l.affirmationId === this.data.selectedAff));
-        }));
+        });
         this.setData({ count: 0, countDisplay: 0 });
         this._recalcBadges();
         wx.showToast({ title: '已清空今日计数', icon: 'none' });
@@ -1219,11 +1219,11 @@ Page({
             : a,
         );
         store.setAffirmations(affs);
-        store.setLogs(store.getLogs().filter((l) =>
+        store.filterLogs((l) =>
           l.kind && l.kind !== 'affirm'
             ? true
             : !(l.tag === this.data.selectedTag && (!this.data.selectedAff || l.affirmationId === this.data.selectedAff)),
-        ));
+        );
         this.setData({ count: 0, countDisplay: 0 });
         this._recalcBadges();
         wx.showToast({ title: '已清空累计计数', icon: 'none' });

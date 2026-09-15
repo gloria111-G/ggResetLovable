@@ -89,6 +89,33 @@
       </block>
       <view wx:else class="ft-xs op-50">还没有数据。</view>
     </view>
+
+    <!-- ============ 存储用量监控 ============ -->
+    <view class="glass card mt6" wx:if="{{usage}}">
+      <view class="ft-xs track-widest op-50 mb3">存储用量</view>
+
+      <view class="row-between mb2">
+        <view class="ft-xs op-70">本地缓存 {{usage.currentKB}}KB / {{usage.limitKB}}KB</view>
+        <view class="num ft-xs {{usage.pct >= 90 ? 'usage-warn' : 'op-60'}}">{{usage.pct}}%</view>
+      </view>
+      <view class="usage-track">
+        <view class="usage-fill {{usage.pct >= 90 ? 'usage-fill-warn' : ''}}" style="width:{{usage.pct}}%"></view>
+      </view>
+
+      <view class="mt3">
+        <view class="row usage-key-row" wx:for="{{usage.keys}}" wx:key="key">
+          <view class="ft-10 op-70 usage-key-name ellipsis">{{item.label}}</view>
+          <view class="usage-key-bar">
+            <view class="usage-key-fill" style="width:{{item.pct}}%"></view>
+          </view>
+          <view class="num ft-10 op-50 usage-key-kb">{{item.kb}}KB</view>
+        </view>
+      </view>
+
+      <view class="ft-10 op-50 mt3 mb3">热日志 {{usage.hotCount}} 条（近 {{usage.hotDays}} 天）· 冷归档 {{usage.archiveCount}} 条，超出 {{usage.hotDays}} 天自动分层压缩。</view>
+
+      <view class="usage-btn" bindtap="compactTap">整理归档</view>
+    </view>
   </view>
 
   <view class="foot">

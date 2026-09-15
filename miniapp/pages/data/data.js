@@ -42,6 +42,8 @@ Page({
     // 单日
     dayVisible: false,
     day: { date: '', count: 0, min: 0, breathMin: 0, rows: [] },
+    // 存储用量监控
+    usage: null,
   },
 
   onShow() {
@@ -62,7 +64,7 @@ Page({
       });
     } catch (e) { /* noop */ }
 
-    const logs = store.getLogs();
+    const logs = store.getAllLogs(); // 热层 + 冷归档，统计需全量历史
     const now = Date.now();
     const affirmLogs = logs.filter((l) => (l.kind || 'affirm') === 'affirm');
     const breathLogs = logs.filter((l) => l.kind === 'breath');
@@ -169,6 +171,7 @@ Page({
         pie,
         pieRows,
         heatWeek: WEEK,
+        usage: store.getStorageUsage(),
       },
       () => {
         if (showPie) this._drawPie();
@@ -224,7 +227,7 @@ Page({
   openDay(e) {
     const date = e.currentTarget.dataset.date;
     if (!date) return;
-    const logs = store.getLogs().filter((l) => l.date === date);
+    const logs = store.getAllLogs().filter((l) => l.date === date); // 含冷归档
     if (!logs.length) {
       wx.showToast({ title: '当天暂无记录', icon: 'none' });
       return;
@@ -248,6 +251,20 @@ Page({
   },
   closeDay() {
     this.setData({ dayVisible: false });
+  },
+
+  /* ---------- 存储用量 ---------- */
+  /** 手动整理：立即把过旧热日志归档并压缩冷层重复项 */
+  compactTap() {
+    wx.showLoading({ title: '整理中', mask: true });
+    setTimeout(() => {
+      try {
+        store.runArchive();
+      } catch (e) { /* noop */ }
+      wx.hideLoading();
+      this.refresh();
+      wx.showToast({ title: '整理完成', icon: 'success' });
+    }, 30);
   },
   noop() {},
 });
