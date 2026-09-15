@@ -7,12 +7,11 @@ App({
     audio.reconcileFromSettings();
   },
   onShow() {
-    // 回到前台：后台期间若被系统中断（如来电），续播白噪音
+    // 从后台回到前台时恢复被系统暂停的白噪音
     audio.reconcileFromSettings();
   },
   onHide() {
-    // 白噪音已声明 requiredBackgroundModes: ["audio"]，
-    // 切后台/锁屏时继续播放，无需处理（官方限制：后台态不可调用播放控制 API）
+    // 白噪音按系统规则：进入后台后由小程序框架自动暂停
   },
   globalData: {},
 });

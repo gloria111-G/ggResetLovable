@@ -16,6 +16,5 @@
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json",
-  "lazyCodeLoading": "requiredComponents",
-  "requiredBackgroundModes": ["audio"]
+  "lazyCodeLoading": "requiredComponents"
 }
