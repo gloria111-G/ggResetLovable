@@ -65,7 +65,7 @@ Page({
       sound: !!s.sound,
       counterMode: s.counterMode || 'today',
       autoCountEnabled: !!s.autoCountEnabled,
-      autoCountInterval: Math.min(60, Math.max(0.1, parseFloat(s.autoCountInterval || 1))),
+      autoCountInterval: Math.min(25, Math.max(0.1, Math.round(parseFloat(s.autoCountInterval || 1) * 10) / 10)),
       resetCounterEnabled: !!s.resetCounterEnabled,
       affirmTimerMode: s.affirmTimerMode || 'countdown',
       breathTimerMode: s.breathTimerMode || 'countdown',
@@ -170,16 +170,23 @@ Page({
   },
   onSlider(e) {
     const field = e.currentTarget.dataset.field;
-    const value = Number(e.detail.value);
+    // 精度修剪：保留 1 位小数，彻底消除 3.60000004 之类的浮点抖动
+    const value = Math.round(Number(e.detail.value) * 10) / 10;
     this._patch({ [field]: value });
     this.setData({ [field]: value });
   },
-  /** 数字输入（自动计数间隔，支持小数） */
+  /** 拖拽过程中实时刷新显示（不落盘，松手由 bindchange 持久化） */
+  onSliderLive(e) {
+    const field = e.currentTarget.dataset.field;
+    const value = Math.round(Number(e.detail.value) * 10) / 10;
+    this.setData({ [field]: value });
+  },
+  /** 数字输入（自动计数间隔，支持 0.1 秒精度，范围 0.1 ~ 25 秒） */
   onInt(e) {
     const field = e.currentTarget.dataset.field;
     let v = parseFloat(e.detail.value);
     if (!isFinite(v)) return;
-    v = Math.min(60, Math.max(0.1, v));
+    v = Math.min(25, Math.max(0.1, Math.round(v * 10) / 10));
     this._patch({ [field]: v });
     this.setData({ [field]: v });
   },

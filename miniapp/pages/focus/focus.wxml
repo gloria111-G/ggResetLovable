@@ -129,13 +129,7 @@
           <text class="cnt-plus">轻触 +1 次</text>
         </view>
 
-        <view class="row-between auto-row" wx:if="{{autoEnabled}}">
-          <view>
-            <text class="ft-sm">自动计数</text>
-            <view class="ft-10 dim mt1">每 {{autoInterval}} 秒自动 +1（开启时）</view>
-          </view>
-          <switch checked="{{autoOn}}" color="#1a5b82" bindchange="autoSwitch" />
-        </view>
+        <view class="ft-10 dim tc mt3" wx:if="{{autoEnabled}}">已开启自动计数 · 每 {{autoInterval}} 秒 +1（计时中生效）</view>
       </view>
 
       <!-- 专注于主题卡 -->
@@ -177,10 +171,21 @@
     <!-- ============================================================
          呼吸调整 Tab
     ============================================================ -->
-    <!-- ============================================================
-         白噪音卡模板（两个 Tab 共用，对应 Web WhiteNoiseSelector）
-    ============================================================ -->
-    <template name="noiseCard">
+    <block wx:if="{{tab === 'breath' && showBreath}}">
+      <!-- 呼吸球 -->
+      <view class="glass f-card breath-card">
+        <view class="breath-holder center">
+          <view class="breath-ball" style="{{ballCss}}">
+            <text class="phase-text serif">{{phaseLabel}}</text>
+          </view>
+        </view>
+        <view class="breath-meta">
+          <view class="breath-mode">呼吸模式：{{breathLabel}}</view>
+          <view class="breath-tip">跟随球体节奏：吸气 → 屏息 → 呼气</view>
+        </view>
+      </view>
+
+      <!-- 白噪音（呼吸球之下、放松指南之上；独立音量不影响计数器音效） -->
       <view class="glass f-card">
         <view class="cap">白噪音</view>
         <view class="noise-chips">
@@ -192,7 +197,6 @@
             bindtap="noiseTap"
           >{{item.icon ? item.icon + ' ' + item.label : item.label}}</view>
         </view>
-        <!-- 白噪音独立音量（与计数器提示音互不影响） -->
         <view class="noise-vol" wx:if="{{noiseOn !== 'off'}}">
           <text class="noise-vol-label">音量</text>
           <slider
@@ -210,24 +214,6 @@
           <text class="noise-vol-val">{{noiseVolume}}%</text>
         </view>
       </view>
-    </template>
-
-    <block wx:if="{{tab === 'breath' && showBreath}}">
-      <!-- 呼吸球 -->
-      <view class="glass f-card breath-card">
-        <view class="breath-holder center">
-          <view class="breath-ball" style="{{ballCss}}">
-            <text class="phase-text serif">{{phaseLabel}}</text>
-          </view>
-        </view>
-        <view class="breath-meta">
-          <view class="breath-mode">呼吸模式：{{breathLabel}}</view>
-          <view class="breath-tip">跟随球体节奏：吸气 → 屏息 → 呼气</view>
-        </view>
-      </view>
-
-      <!-- 白噪音（呼吸球之下、放松指南之上） -->
-      <template is="noiseCard" />
 
       <!-- 身心放松指南 -->
       <view class="glass f-card">
@@ -242,9 +228,38 @@
       </view>
     </block>
 
-    <!-- 白噪音卡（肯定语 Tab：保持页底位置；呼吸 Tab 已上移至呼吸球之下） -->
+    <!-- ============================================================
+         白噪音卡（肯定语 Tab：页底位置；对应 Web WhiteNoiseSelector）
+    ============================================================ -->
     <block wx:if="{{tab !== 'breath' || !showBreath}}">
-      <template is="noiseCard" />
+      <view class="glass f-card">
+        <view class="cap">白噪音</view>
+        <view class="noise-chips">
+          <view
+            wx:for="{{noiseTracks}}"
+            wx:key="key"
+            class="noise-chip {{noiseOn === item.key ? 'noise-on' : ''}}"
+            data-key="{{item.key}}"
+            bindtap="noiseTap"
+          >{{item.icon ? item.icon + ' ' + item.label : item.label}}</view>
+        </view>
+        <view class="noise-vol" wx:if="{{noiseOn !== 'off'}}">
+          <text class="noise-vol-label">音量</text>
+          <slider
+            class="noise-vol-slider"
+            min="0"
+            max="100"
+            step="1"
+            value="{{noiseVolume}}"
+            activeColor="#1a5b82"
+            backgroundColor="rgba(120,140,160,0.25)"
+            block-size="18"
+            bindchanging="noiseVolChanging"
+            bindchange="noiseVolChange"
+          />
+          <text class="noise-vol-val">{{noiseVolume}}%</text>
+        </view>
+      </view>
     </block>
 
     <view class="f-hint">

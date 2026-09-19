@@ -47,6 +47,25 @@ const TRACK_CACHE_FILE = {
 const TICK_URLS = [u('tick.wav')];
 const TICK_CACHE_FILE = 'gg_noise_tick.wav';
 
+/* ---------------- 全局音频选项 ---------------- */
+/**
+ * 全局音频稳定设置（修复静音键无声 / 抢占中断问题）：
+ *   mixWithOther: true    —— 与其他 App 混音，避免互抢音频焦点后被系统掐断；
+ *   obeyMuteSwitch: false —— 忽略物理静音键，静音模式下白噪音与滴答仍可发声。
+ * 幂等操作：重复调用无副作用，App onLaunch 与音频初始化时各调一次。
+ */
+function applyGlobalAudioOptions() {
+  try {
+    wx.setInnerAudioOption({
+      mixWithOther: true,
+      obeyMuteSwitch: false,
+    });
+  } catch (e) {
+    /* 低版本基础库无此 API 时静默跳过 */
+  }
+}
+applyGlobalAudioOptions(); // 模块加载（即音频初始化）时先行应用一次
+
 /* ---------------- 状态 ---------------- */
 let noise = null;
 let noiseTrack = 'off'; // 当前期望曲目
@@ -115,6 +134,7 @@ function currentNoiseVolume() {
 }
 function ensureNoise() {
   if (!noise) {
+    applyGlobalAudioOptions(); // 单例创建前再确认全局选项（混音 / 忽略静音键）
     noise = wx.createInnerAudioContext();
     noise.loop = true;
     noise.obeyMuteSwitch = false;
@@ -213,6 +233,7 @@ function onNoiseError() {
 /* ---------------- 滴答 / 震动 ---------------- */
 function ensureTick() {
   if (!tick) {
+    applyGlobalAudioOptions(); // 单例创建前再确认全局选项（混音 / 忽略静音键）
     tick = wx.createInnerAudioContext();
     tick.obeyMuteSwitch = false;
     tick.onError(() => {
@@ -236,6 +257,11 @@ function playTick(force) {
       if (!cached) downloadToCache(TICK_CACHE_FILE, TICK_URLS[0]);
     }
     t.stop();
+    try {
+      t.seek(0); // 重置播放进度，防止复用单例时残留进度导致卡死无声
+    } catch (e2) {
+      /* 部分机型在 stop 后立即 seek 可能报错，忽略即可 */
+    }
     t.play();
   } catch (e) {
     /* noop */
@@ -252,6 +278,7 @@ function vibrate() {
 }
 
 module.exports = {
+  applyGlobalAudioOptions,
   reconcileFromSettings,
   setWhiteNoise,
   setWhiteNoiseVolume,

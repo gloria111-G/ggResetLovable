@@ -180,7 +180,8 @@ Page({
       noiseVolume: Math.round((Number(s.whiteNoiseVolume) >= 0 ? Number(s.whiteNoiseVolume) : 0.6) * 100),
       resetEnabled: !!s.resetCounterEnabled,
       autoEnabled: !!s.autoCountEnabled,
-      autoInterval: Math.max(1, s.autoCountInterval || 1),
+      // 间隔精度统一修剪为 1 位小数（0.1 秒为最小单位），范围 0.1 ~ 25 秒
+      autoInterval: Math.min(25, Math.max(0.1, Number((Number(s.autoCountInterval) || 1).toFixed(1)))),
       counterModeLabel: s.counterMode === 'total' ? '累计计数' : '今日计数',
     };
     if (full) {
@@ -416,7 +417,8 @@ Page({
     e.total = total;
     e.startedAt = Date.now();
     e.running = true;
-    e.autoActive = !!this.data.autoOn; // 开启自动计数时记录锚点
+    // 自动计数完全由设置驱动：设置里开启后，点【开始/继续】即自动按间隔计数，无需主界面再手动开启
+    e.autoActive = !!s.autoCountEnabled;
     e.autoStartBase = 0;
     e.autoFired = 0;
     const isTimer = e.isTimer;
@@ -704,7 +706,8 @@ Page({
     if (!e.autoActive) return 0;
     if (!e.running && !allowStopped) return 0;
     const s = store.getSettings();
-    const intervalSec = Math.max(0.1, Number(s.autoCountInterval) || Number(this.data.autoInterval) || 1);
+    // 间隔统一保留 1 位小数（0.1 秒最小单位），范围 0.1 ~ 25 秒
+    const intervalSec = Math.min(25, Math.max(0.1, Math.round((Number(s.autoCountInterval) || Number(this.data.autoInterval) || 1) * 10) / 10));
     const runSec = Math.max(0, this._autoRunSecs(e, now) - (e.autoStartBase || 0));
     const expected = Math.floor(runSec / intervalSec);
     const n = Math.max(0, expected - (e.autoFired || 0));
@@ -1104,27 +1107,6 @@ Page({
       customHours: v[0],
       customMinutes: v[1],
     });
-  },
-  autoSwitch(e) {
-    const on = e.detail.value;
-    this.setData({ autoOn: on });
-    const eng = this._engine;
-    // 运行/暂停中的引擎：开启即记录当前时刻锚点（只计开启之后的时间），关闭即停止
-    if (eng && eng.kind === 'affirm' && !eng.finished) {
-      if (on && !eng.autoActive) {
-        eng.autoActive = true;
-        eng.autoStartBase = this._autoRunSecs(eng, Date.now());
-        eng.autoFired = 0;
-      } else if (!on && eng.autoActive) {
-        eng.autoActive = false;
-        eng.autoStartBase = 0;
-        eng.autoFired = 0;
-      }
-      this._saveAffirmSession(eng);
-    }
-    if (on && !this.data.autoEnabled) {
-      wx.showToast({ title: '自动计数已开（可去设置调间隔）', icon: 'none' });
-    }
   },
   confirmCustomDur() {
     const total = (this.data.customHours * 60 + this.data.customMinutes) * 60;

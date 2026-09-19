@@ -3,6 +3,8 @@ const audio = require('./utils/audio');
 
 App({
   onLaunch() {
+    // 全局音频稳定设置：混音 + 忽略物理静音键（修复静音键无声 / 音频抢占中断）
+    audio.applyGlobalAudioOptions();
     // 启动时根据已保存设置恢复白噪音（若上次开启）
     audio.reconcileFromSettings();
   },
