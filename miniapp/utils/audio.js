@@ -332,8 +332,12 @@ function playTick(force) {
   }
 }
 
-/** 轻震动反馈（部分机型） */
+/** 轻震动反馈（部分机型）—— 高频连击节流：两次震动最小间隔 100ms，防止挤爆系统震动引擎 */
+let lastVibAt = 0;
 function vibrate() {
+  const now = Date.now();
+  if (now - lastVibAt < 100) return; // 节流窗口内的震动请求直接丢弃
+  lastVibAt = now;
   try {
     wx.vibrateShort({ type: 'light', fail: () => {} });
   } catch (e) {

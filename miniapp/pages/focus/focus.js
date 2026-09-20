@@ -197,6 +197,9 @@ Page({
     const cur = patch.tab || this.data.tab || 'affirm';
     this.setData(patch);
     this._applyTabMeta(cur, s);
+    // 设置中关闭「自动计数」：立即停用运行中的自动计数（清空触发锚点并复位 UI 开关）。
+    // 返回主界面后无需手动终止，ticker 的自动触发条件已彻底失效，不再计数与发声。
+    if (!s.autoCountEnabled) this._stopAutoCount();
     try {
       wx.setNavigationBarColor({
         frontColor: dark ? '#ffffff' : '#000000',
@@ -239,20 +242,31 @@ Page({
     const tab = e.currentTarget.dataset.tab;
     if (tab === this.data.tab) return;
     const eng = this._engine;
-    // 状态检查：未运行（含无引擎）直接流畅切换；运行中/暂停中先拦截询问
+    // 状态检查：未运行（含无引擎）直接流畅切换；运行中/暂停中按下述门槛处理
     const active = !!(eng && !eng.finished && (eng.running || this.data.paused));
     if (!active) {
       this._switchTab(tab);
       return;
     }
+    // 30 秒保存门槛：<30s 视为误触/极短体验，不弹窗、不落库（不产生碎片废数据），直接重置并切换
+    const secs = Math.max(0, this._autoRunSecs(eng, Date.now()));
+    if (secs < 30) {
+      if (eng.kind === 'affirm') this.resetAffirm();
+      else this.breathReset();
+      this._switchTab(tab);
+      return;
+    }
+    // >=30s：拦截切换，弹出保存确认（分钟数保留 1 位小数，整数不带小数点）
+    const minsNum = Math.round((secs / 60) * 10) / 10;
+    const minsText = Number.isInteger(minsNum) ? String(minsNum) : minsNum.toFixed(1);
     wx.showModal({
       title: '保存并切换？',
-      content: '当前练习正在进行中，是否保存已完成的进度并切换到新模式？',
+      content: '检测到已练习 ' + minsText + ' 分钟，是否保存当前进度并切换？',
       confirmText: '保存切换', // 微信 confirmText 上限 4 个字符，「保存并切换」会被截断
       cancelText: '继续当前',
       success: (res) => {
         if (this._destroyed) return;
-        if (!res.confirm) return; // 继续当前：关闭弹窗，练习不受影响（计时未暂停，继续运行）
+        if (!res.confirm) return; // 取消：关闭弹窗，练习不受影响（计时未暂停，继续运行）
         this._settleAndSwitch(tab);
       },
     });
@@ -626,7 +640,8 @@ Page({
       const now = Date.now();
       const settings = store.getSettings();
       const autoState = session.auto;
-      const autoActive = autoState ? !!autoState.active : !!settings.autoCountEnabled;
+      // 会话恢复时以当前设置为最终裁决：设置中已关闭自动计数则强制停用，防旧会话锚点复活自动计数
+      const autoActive = !!settings.autoCountEnabled && (autoState ? !!autoState.active : true);
       const autoStartBase = autoState ? Number(autoState.startBase) || 0 : 0;
       const autoFired = autoState ? Number(autoState.fired) || 0 : 0;
       if (session.isTimer && session.total > 0) {
@@ -721,6 +736,23 @@ Page({
   },
 
   /* ================= 自动计数（时间戳差补偿，不依赖 setInterval 计数） ================= */
+  /**
+   * 停用自动计数（设置中关闭开关时调用）：
+   * 显式清空引擎触发锚点并复位 UI 开关 —— 计数触发条件 autoOn && autoActive
+   * 随即双双失效，等效于 clearInterval 销毁自动计数定时器；
+   * 共享 ticker 仅为时钟显示保留，不再产生任何计数与提示音。
+   */
+  _stopAutoCount() {
+    const e = this._engine;
+    if (e && e.kind === 'affirm') {
+      e.autoActive = false;
+      e.autoFired = 0;
+      e.autoStartBase = 0;
+    }
+    if (this.data.autoOn || this.data.autoEnabled) {
+      this.setData({ autoOn: false, autoEnabled: false });
+    }
+  },
   /** 引擎已计入的「实际运行秒」（含进行中部分，后台冻结期由 base/墙钟补齐） */
   _autoRunSecs(e, now) {
     if (!e) return 0;
