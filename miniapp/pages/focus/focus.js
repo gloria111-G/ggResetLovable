@@ -238,6 +238,37 @@ Page({
   segTap(e) {
     const tab = e.currentTarget.dataset.tab;
     if (tab === this.data.tab) return;
+    const eng = this._engine;
+    // 状态检查：未运行（含无引擎）直接流畅切换；运行中/暂停中先拦截询问
+    const active = !!(eng && !eng.finished && (eng.running || this.data.paused));
+    if (!active) {
+      this._switchTab(tab);
+      return;
+    }
+    wx.showModal({
+      title: '保存并切换？',
+      content: '当前练习正在进行中，是否保存已完成的进度并切换到新模式？',
+      confirmText: '保存切换', // 微信 confirmText 上限 4 个字符，「保存并切换」会被截断
+      cancelText: '继续当前',
+      success: (res) => {
+        if (this._destroyed) return;
+        if (!res.confirm) return; // 继续当前：关闭弹窗，练习不受影响（计时未暂停，继续运行）
+        this._settleAndSwitch(tab);
+      },
+    });
+  },
+  /** 结算当前进度并切换：已累加计数/已计时长写入数据中心历史记录，重置后切至目标 Bar */
+  _settleAndSwitch(tab) {
+    const eng = this._engine;
+    if (eng && eng.kind === 'affirm') {
+      // saveDuration=true：写入时长日志（tag/肯定语/计数随 upsertDailyLog 一并入账）并清空会话
+      this.finishAffirm(true);
+    } else if (eng && eng.kind === 'breath') {
+      this.breathDone(); // 写入呼吸时长日志并清空会话
+    }
+    this._switchTab(tab);
+  },
+  _switchTab(tab) {
     // 切换前挂起当前模式引擎
     this._suspendEngine(true);
     this._applyTabMeta(tab, store.getSettings());
