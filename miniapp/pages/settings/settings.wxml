@@ -60,7 +60,7 @@
         <view class="act flex-1" hover-class="pressed" bindtap="resetBg">恢复默认海浪背景</view>
       </view>
       <view class="ft-10 op-55" wx:if="{{customBg}}">当前已使用自定义背景，仅保存在本机</view>
-      <view class="ft-10 op-55" wx:else>选择图片作为专注背景，可随时恢复</view>
+      <view class="ft-10 op-55" wx:else>长按 / 选择图片作为专注背景，可随时恢复</view>
     </view>
 
     <!-- ============ 专注页面 ============ -->
@@ -240,13 +240,11 @@
         建议先「导出到剪贴板」完成备份。
       </view>
       <input
-        class="s-reset-input mono mb3"
+        class="s-reset-input mono"
         value="{{resetText}}"
         bindinput="onResetInput"
-        placeholder="输入 reset 确认重置"
-        placeholder-class="ph"
       />
-      <view class="ft-10 mb4 {{resetOk ? 'ok-text' : 'op-55'}}">
+      <view class="s-reset-hint {{resetOk ? 'ok-text' : ''}}">
         {{resetOk ? '已确认，可执行重置' : '请输入 reset 以解锁重置按钮'}}
       </view>
       <view class="row gap2">

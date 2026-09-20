@@ -150,6 +150,15 @@
   font-size: 14px;
   width: 100%;
   color: var(--ink);
+  margin-bottom: 8px;
+}
+/* 重置提示：位于输入框正下方，字号放大 + 红色醒目（安卓/iOS 一致，无重叠） */
+.s-reset-hint {
+  font-size: 28rpx; /* = 14px，兼容低版本基础库统一用 rpx */
+  line-height: 1.6;
+  color: #e53e3e;
+  margin: 0 0 16px 0;
+  text-align: center;
 }
 .ok-text { color: var(--accent, #4a79b8); }
 .s-log-sec + .s-log-sec { margin-top: 16px; }

@@ -75,6 +75,7 @@ let noiseWarned = false;
 
 let tick = null;
 let tickBroken = false;
+let tickErrCount = 0; // 滴答上下文连续错误计数（防错误自愈无限循环）
 
 const fsm = () => {
   try {
@@ -132,7 +133,46 @@ function currentNoiseVolume() {
   const v = Number(s.whiteNoiseVolume);
   return isNaN(v) ? 0.6 : Math.max(0, Math.min(1, v));
 }
+/* ---------------- 上下文存活检查与自愈 ---------------- */
+/**
+ * 音频上下文存活检查：实例为空、已被微信回收（destroyed=true）、
+ * 或属性访问直接抛错（被系统挂起/销毁）均视为失效。
+ * 频繁切后台时微信可能回收 InnerAudioContext，切回前台必须先检测再重建。
+ */
+function isCtxAlive(el) {
+  if (!el) return false;
+  try {
+    if (el.destroyed) return false;
+    if (typeof el.src !== 'string') return false;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/** 丢弃失效的白噪音上下文（src 由 setWhiteNoise 完整流程重新绑定） */
+function discardNoiseCtx() {
+  try {
+    if (noise) noise.destroy();
+  } catch (e) {
+    /* noop */
+  }
+  noise = null;
+}
+
+/** 丢弃失效的滴答上下文（下次 playTick 按需重建） */
+function discardTickCtx() {
+  try {
+    if (tick) tick.destroy();
+  } catch (e) {
+    /* noop */
+  }
+  tick = null;
+}
+
 function ensureNoise() {
+  // 切后台被系统回收的实例：先销毁再重建，播放地址由调用方重新绑定
+  if (noise && !isCtxAlive(noise)) discardNoiseCtx();
   if (!noise) {
     applyGlobalAudioOptions(); // 单例创建前再确认全局选项（混音 / 忽略静音键）
     noise = wx.createInnerAudioContext();
@@ -167,16 +207,20 @@ function safeStop(el) {
   }
 }
 
-/** 按当前设置期望的白噪音曲目恢复/停止（App onLaunch / onShow 时调用） */
+/** 按当前设置期望的白噪音曲目恢复/停止（App onLaunch / onShow 切回前台时调用） */
 function reconcileFromSettings() {
   const s = store.getSettings();
+  // 切回前台自愈：先做上下文存活检查，被系统回收/异常的实例立即销毁重建并重绑
+  if (noise && !isCtxAlive(noise)) discardNoiseCtx();
+  if (tick && !isCtxAlive(tick)) discardTickCtx();
   setWhiteNoise(s.whiteNoise || 'off');
 }
 
 function setWhiteNoise(track) {
   const next = track && TRACK_URLS[track] ? track : 'off';
   const el = ensureNoise();
-  if (noiseTrack === next && next !== 'off') {
+  // 同一曲目续播须以实例已绑定 src 为前提：重建后的空上下文走下方完整重绑流程
+  if (noiseTrack === next && next !== 'off' && el.src) {
     // 同一曲目：此前可能被系统暂停/缓冲失败，续播并优先使用已缓存的本地文件
     const cached = cachePath(TRACK_CACHE_FILE[next]);
     if (cached && el.src !== cached) el.src = cached;
@@ -217,6 +261,13 @@ function playNoiseUrl(el, track) {
 function onNoiseError() {
   const el = noise;
   if (!el) return;
+  // 上下文本身已被系统回收/销毁：立即销毁重建并重绑当前曲目（音频错误自愈）
+  if (!isCtxAlive(el)) {
+    const track = noiseTrack;
+    discardNoiseCtx();
+    if (track && track !== 'off') setWhiteNoise(track);
+    return;
+  }
   if (el._ggGen !== noiseGen) return; // 已切换曲目，忽略迟到的错误
   const track = noiseTrack;
   if (!track || track === 'off') return;
@@ -232,12 +283,24 @@ function onNoiseError() {
 
 /* ---------------- 滴答 / 震动 ---------------- */
 function ensureTick() {
+  // 切后台被系统回收的实例：先销毁再重建（播放地址在 playTick 中按需重绑）
+  if (tick && !isCtxAlive(tick)) discardTickCtx();
   if (!tick) {
     applyGlobalAudioOptions(); // 单例创建前再确认全局选项（混音 / 忽略静音键）
     tick = wx.createInnerAudioContext();
     tick.obeyMuteSwitch = false;
     tick.onError(() => {
-      tickBroken = true; // 网络不可用则静默跳过（计数/UI 不受影响）
+      // 错误自愈：销毁上下文，下次播放时重建重绑；
+      // 连续失败超过 3 次则本会话内静默跳过（计数/UI 不受影响，防无限循环）
+      tickErrCount += 1;
+      if (tickErrCount > 3) {
+        tickBroken = true;
+        return;
+      }
+      discardTickCtx();
+    });
+    tick.onPlay(() => {
+      tickErrCount = 0; // 播放成功即复位错误计数
     });
   }
   return tick;
@@ -249,6 +312,7 @@ function playTick(force) {
   if (!force && !s.sound) return;
   if (tickBroken) return;
   try {
+    // 播放前状态防护：ensureTick 内含存活检查，失效实例自动销毁重建并重绑播放地址
     const t = ensureTick();
     if (!t.src) {
       // 优先本地缓存，其次网络源；随后后台缓存一次供后续会话离线使用
