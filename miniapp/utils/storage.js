@@ -22,6 +22,8 @@ const SESSION_KEYS = {
 
 const FOCUS_TAB_KEY = 'gg_focus_tab';
 const AFFIRM_SELECTION_KEY = 'gg_affirm_selection';
+/** 上次活跃时间戳（毫秒）：用于 9 小时离线超时判定 */
+const LAST_ACTIVE_KEY = 'gg_last_active';
 
 const DEFAULT_TAGS = ['爱情', '财富', '健康', '事业', '自我概念', '人际关系'];
 
@@ -198,6 +200,9 @@ function getFocusTab() { return get(FOCUS_TAB_KEY, 'affirm'); }
 function setFocusTab(tab) { set(FOCUS_TAB_KEY, tab); }
 function getAffirmSelection() { return get(AFFIRM_SELECTION_KEY, null); }
 function setAffirmSelection(sel) { set(AFFIRM_SELECTION_KEY, sel); }
+/** 上次活跃时间戳：0 表示尚未建立基准（首次运行） */
+function getLastActive() { return Number(get(LAST_ACTIVE_KEY, 0)) || 0; }
+function setLastActive(ts) { set(LAST_ACTIVE_KEY, Number(ts) || Date.now()); }
 
 /* ---------- 日期 / id ---------- */
 function pad(n) { return n < 10 ? '0' + n : '' + n; }
@@ -354,6 +359,8 @@ module.exports = {
   setFocusTab,
   getAffirmSelection,
   setAffirmSelection,
+  getLastActive,
+  setLastActive,
   todayKey,
   dailyLogId,
   uid,

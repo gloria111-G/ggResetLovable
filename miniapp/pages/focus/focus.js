@@ -12,6 +12,8 @@ const util = require('../../utils/util');
 const BG = { light: '/images/ocean-bg.jpg', dark: '/images/ocean-bg-dark.jpg' };
 const DUR_CHIPS = [1, 3, 5, 10, 15, 20, 25, 30, 45, 60, 90, 120]; // 分钟
 const MAX_H = 16;
+/** 最大允许离线/后台时长：9 小时（毫秒）——超过即封顶结算并强制暂停 */
+const MAX_OFFLINE_TIME = 9 * 3600 * 1000;
 const NOISE_TRACKS = [
   { key: 'off', label: '关闭' },
   { key: 'waves', label: '海浪', icon: '🌊' },
@@ -150,21 +152,123 @@ Page({
     // 避免点击【开始】沿用上一段倒计时的 05:00 等初始状态
     this._checkAffirmModeChange();
     this._refreshAfterReturn();
+    // 9 小时离线超时判定：先封顶结算 + 强制暂停 + 静音兜底，再恢复会话，
+    // 避免超长 gap 被无限补算（保护数据真实性）；9 小时以内则按原逻辑正常补算
+    const timedOut = this._checkOfflineTimeout();
     this._restoreSession();
+    // 情况 B：正常补算；若原状态正在计时且开启了白噪音，恢复白噪音播放
+    if (!timedOut && store.getSettings().whiteNoise !== 'off') audio.reconcileFromSettings();
     // 从设置页返回：按最新开关状态重建/停用自动计数定时器（重开开关后立即恢复生效）
     this.syncAutoCountState();
     this._maybeSyncWheel();
+    // 处理完毕即刷新活跃时间戳，防止重复触发 onShow 造成逻辑冲突
+    this._touchActive(true);
   },
   onHide() {
     this._suspendEngine(true);
     this._stopTicker();
     this._stopPhaseTimer();
+    this._touchActive(true); // 记录离开时刻，作为离线时长计算的基准
   },
   onUnload() {
     this._destroyed = true;
     this._suspendEngine(true);
     this._stopTicker();
     this._stopPhaseTimer();
+    this._touchActive(true);
+  },
+
+  /* ================= 9 小时离线超时（活跃时间戳 / 封顶结算 / 静音兜底） ================= */
+  /** 刷新活跃时间戳（节流：非强制时 20 秒内不重复落盘），仅用于离线超时判定 */
+  _touchActive(force) {
+    const now = Date.now();
+    if (!force && now - (this._lastActiveWrite || 0) < 20000) return;
+    this._lastActiveWrite = now;
+    store.setLastActive(now);
+  },
+  /**
+   * 离线超时判定（onShow 中先于 _restoreSession 执行）：
+   *   delta = now - lastActiveTime
+   *   delta >= MAX_OFFLINE_TIME(9h) → 封顶结算 + 强制暂停 + 静音兜底 + Toast，返回 true
+   *   delta <  MAX_OFFLINE_TIME      → 返回 false，交由原逻辑正常补算
+   */
+  _checkOfflineTimeout() {
+    const last = store.getLastActive();
+    const now = Date.now();
+    if (!last) {
+      store.setLastActive(now); // 首次运行：仅建立基准，不做超时处理
+      return false;
+    }
+    const delta = now - last;
+    if (delta < MAX_OFFLINE_TIME) return false;
+    this._settleOfflineTimeout();
+    return true;
+  },
+  /**
+   * 9 小时离线超时结算：
+   *   1) 补算封顶：只按最多 MAX_OFFLINE_TIME(9h) 的有效时长与对应计数上限入账，不再无限叠加；
+   *   2) 计时/计数状态强制置为【已结束/已暂停】，释放内存引擎与全部定时器；
+   *   3) 白噪音与音效播放器暂停并销毁播放上下文，确保不发出任何声音；
+   *   4) 轻量 Toast 提示。
+   */
+  _settleOfflineTimeout() {
+    const now = Date.now();
+    const capSecs = MAX_OFFLINE_TIME / 1000; // 9h = 32400 秒
+    const settings = store.getSettings();
+    // ---------- 肯定语会话：封顶补算时长 + 计数后入账 ----------
+    const a = store.getActiveSession('affirm');
+    if (a && a.v === 1 && a.running) {
+      let gap = Math.min(Math.max(0, (now - (a.startedAt || now)) / 1000), capSecs);
+      if (a.isTimer && a.total > 0) gap = Math.min(gap, Math.max(0, a.total - (a.base || 0)));
+      const secs = Math.round(gap);
+      const auto = a.auto || {};
+      const intervalSec = this._autoIntervalMs() / 1000;
+      const n = settings.autoCountEnabled && auto.active && intervalSec > 0
+        ? Math.max(0, Math.floor(gap / intervalSec))
+        : 0;
+      if (secs > 0 || n > 0) {
+        store.setLogs(store.upsertDailyLog(store.getLogs(), {
+          tag: a.tag || this.data.selectedTag,
+          affId: a.affId || undefined,
+          addCount: n,
+          addDuration: secs,
+          kind: 'affirm',
+        }));
+        if (a.affId && n > 0) {
+          store.setAffirmations(store.getAffirmations().map((x) => (
+            x.id === a.affId ? Object.assign({}, x, { count: (x.count || 0) + n }) : x
+          )));
+        }
+      }
+      store.saveActiveSession('affirm', null);
+    }
+    // ---------- 呼吸引擎：封顶补算时长 ----------
+    const b = store.getActiveSession('breath');
+    if (b && b.v === 1 && b.running) {
+      let gap = Math.min(Math.max(0, (now - (b.startedAt || now)) / 1000), capSecs);
+      if (b.isTimer && b.total > 0) gap = Math.min(gap, Math.max(0, b.total - (b.base || 0)));
+      const secs = Math.round(gap);
+      if (secs > 0) {
+        store.setLogs(store.upsertDailyLog(store.getLogs(), {
+          tag: '呼吸调整', addDuration: secs, kind: 'breath',
+        }));
+      }
+      store.saveActiveSession('breath', null);
+    }
+    // ---------- 状态强制复位：计时/计数结束，残留引擎与定时器全部释放 ----------
+    this._engine = null;
+    this._stopTicker();
+    this._stopPhaseTimer();
+    this.setData({
+      running: false, paused: false, showDurPanel: true, elapsed: 0, clock: '00:00',
+      celebration: false, ballScale: 1, ballCss: 'transform:scale(1)',
+    });
+    this._recalcBadges();
+    // ---------- 静音兜底：白噪音置 off 并销毁播放上下文，确保不发出任何声音 ----------
+    store.patchSettings({ whiteNoise: 'off' });
+    audio.releaseAll();
+    this.setData({ noiseOn: 'off', settings: store.getSettings() });
+    wx.showToast({ title: '已为你自动暂停超过 9 小时的离线专注', icon: 'none', duration: 3000 });
   },
 
   /* ================= 设置 / 主题 ================= */
@@ -880,6 +984,8 @@ Page({
   _tick(kind) {
     const e = this._engine;
     if (!e || !e.running) return;
+    // 运行中持续刷新活跃时间戳（内部 20 秒节流），避免长时间前台停留被误判为离线超时
+    this._touchActive();
     const now = Date.now();
     if (kind === 'affirm') {
       // 自动计数：开关开启且计时器运行中时按间隔触发（倒计时 / 正计时均生效）
@@ -1182,8 +1288,10 @@ Page({
     }
     // 开始 / 暂停 / 恢复：按最新开关与计时状态同步自动计数定时器
     this.syncAutoCountState();
+    this._touchActive(true); // 手动操作即视为活跃
   },
   timerEnd() {
+    this._touchActive(true); // 手动操作即视为活跃
     if (!this._engine) return;
     if (this.data.tab === 'breath') this.breathDone();
     else this.finishAffirmNow();

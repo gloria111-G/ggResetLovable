@@ -55,9 +55,18 @@
           <view
             wx:for="{{item.lines}}"
             wx:for-item="line"
-            wx:key="*this"
+            wx:for-index="li"
+            wx:key="li"
             class="ft-sm lh-relaxed guide-p"
-          >{{line}}</view>
+          >
+            <text
+              wx:for="{{line}}"
+              wx:for-item="seg"
+              wx:for-index="si"
+              wx:key="si"
+              class="{{seg.b ? 'g-b' : ''}}"
+            >{{seg.t}}</text>
+          </view>
         </view>
       </scroll-view>
       <view class="btn btn-primary btn-block mt5" hover-class="pressed" bindtap="closeGuide">知道了</view>

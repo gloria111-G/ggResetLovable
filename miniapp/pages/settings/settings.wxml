@@ -24,7 +24,15 @@
               wx:for-index="li"
               wx:key="li"
               class="g-p ft-sm lh-relaxed"
-            >{{ln}}</view>
+            >
+              <text
+                wx:for="{{ln}}"
+                wx:for-item="seg"
+                wx:for-index="si"
+                wx:key="si"
+                class="{{seg.b ? 'g-b' : ''}}"
+              >{{seg.t}}</text>
+            </view>
           </view>
         </view>
       </block>

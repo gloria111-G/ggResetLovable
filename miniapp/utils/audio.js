@@ -332,6 +332,23 @@ function playTick(force) {
   }
 }
 
+/**
+ * 静音兜底（9 小时离线超时结算时调用）：
+ * 停止白噪音与滴答播放，并销毁两个播放上下文，确保不再发出任何声音。
+ * 说明：destroy() 后 noise/tick 置空，后续 setWhiteNoise / playTick 会自动重建实例。
+ */
+function releaseAll() {
+  safeStop(noise);
+  discardNoiseCtx();
+  noiseTrack = 'off'; // 期望曲目复位，避免下次 setWhiteNoise 走「同曲续播」分支
+  noiseGen += 1; // 使迟到的旧 onError 回调失效
+  noiseSrcFail = 0;
+  noiseWarned = false;
+  safeStop(tick);
+  discardTickCtx();
+  tickErrCount = 0;
+}
+
 /** 轻震动反馈（部分机型）—— 高频连击节流：两次震动最小间隔 100ms，防止挤爆系统震动引擎 */
 let lastVibAt = 0;
 function vibrate() {
@@ -350,6 +367,7 @@ module.exports = {
   reconcileFromSettings,
   setWhiteNoise,
   setWhiteNoiseVolume,
+  releaseAll,
   playTick,
   vibrate,
 };

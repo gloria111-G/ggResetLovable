@@ -168,6 +168,9 @@ view, text, image, scroll-view, input, textarea, button, switch, slider {
 .lh-relaxed { line-height: 1.625; }
 .lh-snug { line-height: 1.375; }
 
+/* 使用指南粗体强调段（guide.js 的 **粗体** 解析结果，首页弹窗与设置页共用） */
+.g-b { font-weight: 700; color: var(--ink); }
+
 /* 颜色 / 透明度 */
 .ink { color: var(--ink); }
 .mut { color: var(--ink-mut); }
