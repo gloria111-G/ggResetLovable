@@ -154,17 +154,23 @@ Page({
     this._refreshAfterReturn();
     // 9 小时离线超时判定：先封顶结算 + 强制暂停 + 静音兜底，再恢复会话，
     // 避免超长 gap 被无限补算（保护数据真实性）；9 小时以内则按原逻辑正常补算
-    const timedOut = this._checkOfflineTimeout();
+    this._checkOfflineTimeout();
     this._restoreSession();
-    // 情况 B：正常补算；若原状态正在计时且开启了白噪音，恢复白噪音播放
-    if (!timedOut && store.getSettings().whiteNoise !== 'off') audio.reconcileFromSettings();
     // 从设置页返回：按最新开关状态重建/停用自动计数定时器（重开开关后立即恢复生效）
     this.syncAutoCountState();
     this._maybeSyncWheel();
+    // 白噪音仅在【计时进行中】生效；停止/暂停/无设置项 → 静音（_syncNoisePlayback 单一开关）
+    this._syncNoisePlayback();
     // 处理完毕即刷新活跃时间戳，防止重复触发 onShow 造成逻辑冲突
     this._touchActive(true);
   },
   onHide() {
+    // 仅在「页面离开（非后台）」时停止白噪音：
+    //   - 切后台（App.onHide 触发）：becomingHidden=true → 保留白噪音，维持后台专注体验；
+    //   - 页面跳转（navigateTo 等 navigate 类导航）：App.onHide 不触发 → 立即停止，绝不带入其他页面。
+    //   - 返回主页（navigateBack 销毁页面）：本函数不再触发，由 onUnload 兜底停止。
+    const becomingHidden = !!(getApp() && getApp().globalData && getApp().globalData.becomingHidden);
+    if (!becomingHidden) audio.stopWhiteNoise();
     this._suspendEngine(true);
     this._stopTicker();
     this._stopPhaseTimer();
@@ -172,6 +178,8 @@ Page({
   },
   onUnload() {
     this._destroyed = true;
+    // 页面销毁（navigateBack / reLaunch）：彻底停止白噪音，确保不带入其他页面
+    audio.stopWhiteNoise();
     this._suspendEngine(true);
     this._stopTicker();
     this._stopPhaseTimer();
@@ -269,6 +277,25 @@ Page({
     audio.releaseAll();
     this.setData({ noiseOn: 'off', settings: store.getSettings() });
     wx.showToast({ title: '已为你自动暂停超过 9 小时的离线专注', icon: 'none', duration: 3000 });
+  },
+
+  /* ================= 白噪音作用域（仅在专注页生效） ================= */
+  /**
+   * 单一开关：把白噪音与【计时状态 + 设置项】同步
+   *   规则：白噪音仅在【计时进行中】状态（running=true）下响起；
+   *   　　停止/暂停 或 设置项为 off → 暂停播放（保留曲目与上下文，便于恢复时随手续播）。
+   *   调用方：onShow / timerPrimary / timerEnd / noiseTap 任一状态切换后。
+   *   注意：不调用此函数时白噪音可保留前次状态——离开页面（onHide/onUnload）单独处理。
+   */
+  _syncNoisePlayback() {
+    const track = (store.getSettings().whiteNoise || 'off');
+    if (track !== 'off' && this.data.running) {
+      // 计时进行中 + 选了曲目：恢复播放（包含 OS 回收后的自愈路径：isCtxAlive → discardNoiseCtx → 重建并重绑）
+      audio.reconcileFromSettings();
+    } else {
+      // 计时停止/暂停/未启用：仅暂停（不销毁上下文，保留 noiseTrack 供恢复时走「同曲续播」分支）
+      audio.stopWhiteNoise();
+    }
   },
 
   /* ================= 设置 / 主题 ================= */
@@ -1288,6 +1315,8 @@ Page({
     }
     // 开始 / 暂停 / 恢复：按最新开关与计时状态同步自动计数定时器
     this.syncAutoCountState();
+    // 白噪音与计时状态绑定：开始→出声，暂停→静音（单一开关避免逻辑分散）
+    this._syncNoisePlayback();
     this._touchActive(true); // 手动操作即视为活跃
   },
   timerEnd() {
@@ -1297,6 +1326,8 @@ Page({
     else this.finishAffirmNow();
     // 终止：引擎已释放，同步复位自动计数状态与定时器句柄
     this.syncAutoCountState();
+    // 终止计时：停止白噪音
+    this._syncNoisePlayback();
   },
   goHome() {
     wx.navigateBack({ delta: 1, fail: () => wx.reLaunch({ url: '/pages/index/index' }) });
@@ -1384,8 +1415,9 @@ Page({
   noiseTap(e) {
     const key = e.currentTarget.dataset.key;
     store.patchSettings({ whiteNoise: key });
-    audio.setWhiteNoise(key);
     this.setData({ noiseOn: key });
+    // 白噪音仅在【计时进行中】生效：设置项照常保存，恢复计时后自动续播（_syncNoisePlayback 单一开关）
+    this._syncNoisePlayback();
   },
   /** 拖动滑杆实时预览音量（不写存储，避免高频写入） */
   noiseVolChanging(e) {

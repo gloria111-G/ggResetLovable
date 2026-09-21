@@ -263,7 +263,7 @@ Page({
     store.importAll(data);
     this.setData({ importVisible: false });
     this._load();
-    audio.reconcileFromSettings();
+    // 白噪音仅在专注页生效：导入后不在此页面播放；用户进入专注页时由 _syncNoisePlayback 自动续上
     wx.showToast({ title: '导入成功', icon: 'success' });
   },
   openReset() {
