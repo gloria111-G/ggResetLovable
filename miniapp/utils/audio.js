@@ -349,6 +349,18 @@ function releaseAll() {
   tickErrCount = 0;
 }
 
+/**
+ * 暂停白噪音但保留期望曲目与播放上下文（专注页 onHide / onUnload 时调用）：
+ *   - 仅 stop() 暂停播放，不 destroy() 音频上下文（避免来回重建的开销与延迟）；
+ *   - 不重置 noiseTrack，下次 setWhiteNoise(同一曲目) 走「同曲续播」分支直接 el.play() 续上；
+ *   - 不影响滴答上下文（计数器音效独立，且与计时状态绑定——本函数不触碰）。
+ * 对比 releaseAll()：用于 9h 超时「彻底销毁」；本函数用于「页面离开时的轻量暂停」。
+ */
+function stopWhiteNoise() {
+  if (!noiseTrack || noiseTrack === 'off') return;
+  safeStop(noise);
+}
+
 /** 轻震动反馈（部分机型）—— 高频连击节流：两次震动最小间隔 100ms，防止挤爆系统震动引擎 */
 let lastVibAt = 0;
 function vibrate() {
@@ -367,6 +379,7 @@ module.exports = {
   reconcileFromSettings,
   setWhiteNoise,
   setWhiteNoiseVolume,
+  stopWhiteNoise,
   releaseAll,
   playTick,
   vibrate,
