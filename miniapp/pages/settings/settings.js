@@ -159,16 +159,16 @@ Page({
       this._load();
     }
     // 自动计数开关：立即驱动 Focus 页重建/停用自动计数定时器（无需等返回主界面）
-    if (field === 'autoCountEnabled') this._syncFocusAutoCount();
+    if (field === 'autoCountEnabled') this._notifyFocus('syncAutoCountState');
   },
-  /** 通知页面栈中的 Focus 页立即响应自动计数开关变更（状态响应函数统一入口） */
-  _syncFocusAutoCount() {
+  /** 通知页面栈中的 Focus 页立即响应某一状态变更（可选传参，如实时拖拽的间隔秒数） */
+  _notifyFocus(method, arg) {
     try {
       const pages = getCurrentPages() || [];
       for (let i = pages.length - 1; i >= 0; i--) {
         const p = pages[i];
-        if (p && (p.route || '').indexOf('pages/focus/focus') >= 0 && typeof p.syncAutoCountState === 'function') {
-          p.syncAutoCountState();
+        if (p && (p.route || '').indexOf('pages/focus/focus') >= 0 && typeof p[method] === 'function') {
+          p[method](arg); // 同步调用（同步落盘 + 重建定时器），保证节奏立即生效
           return;
         }
       }
@@ -191,12 +191,15 @@ Page({
     const value = Math.round(Number(e.detail.value) * 10) / 10;
     this._patch({ [field]: value });
     this.setData({ [field]: value });
+    // 自动计数间隔：松手落盘后立即按新间隔重建 Focus 的自动计数节奏
+    if (field === 'autoCountInterval') this._notifyFocus('syncAutoCountInterval', value);
   },
-  /** 拖拽过程中实时刷新显示（不落盘，松手由 bindchange 持久化） */
+  /** 拖拽过程中实时刷新显示（不落盘，松手由 bindchange 持久化），并实时驱动计数节奏 */
   onSliderLive(e) {
     const field = e.currentTarget.dataset.field;
     const value = Math.round(Number(e.detail.value) * 10) / 10;
     this.setData({ [field]: value });
+    if (field === 'autoCountInterval') this._notifyFocus('syncAutoCountInterval', value);
   },
   /** 数字输入（自动计数间隔，支持 0.1 秒精度，范围 0.1 ~ 25 秒） */
   onInt(e) {
@@ -206,6 +209,8 @@ Page({
     v = Math.min(25, Math.max(0.1, Math.round(v * 10) / 10));
     this._patch({ [field]: v });
     this.setData({ [field]: v });
+    // 输入框直接填写间隔：同样立即重排 Focus 的自动计数节奏
+    if (field === 'autoCountInterval') this._notifyFocus('syncAutoCountInterval', v);
   },
 
   /* ============ 呼吸自定义 ============ */

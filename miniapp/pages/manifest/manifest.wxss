@@ -204,17 +204,31 @@
   background: transparent;
 }
 
-/* ---------- 编辑弹窗 ---------- */
-.dlg-sm { max-width: 448px; } /* max-w-md */
+/* ---------- 编辑弹窗（含计数器数值调节区） ---------- */
+.dlg-sm {
+  max-width: 448px; /* max-w-md */
+  position: relative;
+  z-index: 2; /* 抬高层级：调节框整体不被底部/周围组件遮挡 */
+  /* 底部安全区 + 额外留白：关闭 ✕ / 保存 / 删除按钮不被 iOS 底部横条遮挡 */
+  padding: 24px 24px calc(30px + env(safe-area-inset-bottom));
+}
 .m-edtext { word-break: break-all; }
 .cnt-input {
   text-align: center;
   font-family: "DengXian", "等线", "Helvetica Neue", "Segoe UI", Arial, sans-serif;
   font-size: 18px;
   font-variant-numeric: tabular-nums;
+  min-height: 46px;
+  padding: 10px 14px; /* 数值显示框：更宽松的内边距 */
+  margin: 6px 0 12px; /* 与上方标题、下方按钮均保持留白 */
 }
 .save-btn {
-  padding: 10px 20px;
+  padding: 12px 22px;
+  margin: 6px 0 12px; /* 与数值框、删除按钮拉开间距 */
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
   background: var(--card-bg-strong);
   border: 2px solid var(--sel-border);
@@ -229,7 +243,9 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 16px;
+  padding: 12px 16px;
+  margin-top: 6px;
+  margin-bottom: calc(4px + env(safe-area-inset-bottom));
   border-radius: 16px; /* rounded-2xl */
   background: var(--card-bg);
   border: 1px solid var(--card-border);

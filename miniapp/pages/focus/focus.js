@@ -468,6 +468,7 @@ Page({
     e.autoActive = !!s.autoCountEnabled;
     e.autoStartBase = 0;
     e.autoFired = 0;
+    e.autoIntervalMs = this._autoIntervalMs(); // 记录生效间隔，供变更检定与后台补足使用
     const isTimer = e.isTimer;
     this.setData({
       running: true, paused: false, total: e.total, isTimer, showDurPanel: false,
@@ -497,6 +498,7 @@ Page({
       e.autoActive = true;
       e.autoStartBase = this._autoRunSecs(e, Date.now());
       e.autoFired = 0;
+      e.autoIntervalMs = this._autoIntervalMs();
     } else if (!this.data.autoOn && e.autoActive) {
       e.autoActive = false;
       e.autoFired = 0;
@@ -595,6 +597,7 @@ Page({
         active: !!e.autoActive,
         startBase: e.autoStartBase || 0,
         fired: e.autoFired || 0,
+        intervalMs: e.autoIntervalMs || 0, // 生效间隔（毫秒）：恢复时用于检定间隔是否被改动
       },
     });
   },
@@ -646,6 +649,8 @@ Page({
       const autoActive = !!settings.autoCountEnabled && (autoState ? !!autoState.active : true);
       const autoStartBase = autoState ? Number(autoState.startBase) || 0 : 0;
       const autoFired = autoState ? Number(autoState.fired) || 0 : 0;
+      // 上次生效间隔：0 表示无记录，交由 _syncAutoCount 重排锚点（防旧 autoFired 造成计数瘫痪）
+      const autoIntervalMs = autoState ? Number(autoState.intervalMs) || 0 : 0;
       if (session.isTimer && session.total > 0) {
         const gapTotal = session.running ? Math.max(0, (now - session.startedAt) / 1000) : 0;
         if (session.base + gapTotal >= session.total) {
@@ -653,7 +658,7 @@ Page({
           this._engine = {
             kind: 'affirm', isTimer: true, total: session.total, base: session.total, startedAt: now,
             running: false, count: session.count || 0, finished: true,
-            autoActive, autoStartBase, autoFired,
+            autoActive, autoStartBase, autoFired, autoIntervalMs,
           };
           this.setData({ count: session.count || 0, countDisplay: session.count || 0, total: session.total });
           this._syncAutoCount(this._engine, now, true);
@@ -690,6 +695,7 @@ Page({
         autoActive,
         autoStartBase,
         autoFired,
+        autoIntervalMs,
       };
       this._engine = e;
       this.setData({
@@ -765,9 +771,35 @@ Page({
       affirm.autoActive = true;
       affirm.autoStartBase = this._autoRunSecs(affirm, Date.now());
       affirm.autoFired = 0;
+      affirm.autoIntervalMs = this._autoIntervalMs();
     }
     this._startTicker('affirm'); // 清旧建新：自动计数定时器随开关状态重建
     this._saveAffirmSession(affirm);
+  },
+  /**
+   * 间隔变更响应（设置页实时调整 1s → 10s 等大幅变化时调用）：
+   *   1) 读取新间隔并换算为毫秒 intervalMs = Math.round(sec * 10) * 100；
+   *   2) 销毁旧定时器句柄（_startTicker 内部 clearInterval）；
+   *   3) 以当前运行秒重排锚点（autoStartBase = now、autoFired = 0），
+   *      再用全新节奏重启 setInterval —— 保证调整后立即按新间隔平滑计数，绝不卡死。
+   */
+  syncAutoCountInterval(nextSec) {
+    const e = this._engine;
+    // 拖拽 changing 期间传入实时值（尚未落盘），其余场景回读设置
+    const override = Number(nextSec);
+    const intervalMs = override > 0
+      ? Math.round(Math.min(25, Math.max(0.1, Math.round(override * 10) / 10)) * 10) * 100
+      : this._autoIntervalMs();
+    const intervalSec = intervalMs / 1000;
+    // 页面提示文案（“每 X 秒 +1”）即时跟随
+    if (this.data.autoInterval !== intervalSec) this.setData({ autoInterval: intervalSec });
+    if (!e || e.kind !== 'affirm' || e.finished) return;
+    e.autoIntervalMs = intervalMs;
+    if (!e.running || !e.autoActive) return; // 暂停/未开启自动计数：锚点由 start/resume 路径接管
+    e.autoStartBase = this._autoRunSecs(e, Date.now());
+    e.autoFired = 0;
+    this._startTicker('affirm'); // 清旧句柄 → 用新间隔节奏重启定时器
+    this._saveAffirmSession(e);
   },
   /**
    * 停用自动计数（设置中关闭开关时调用）：
@@ -794,6 +826,17 @@ Page({
     return (e.base || 0) + (e.running ? (now - (e.startedAt || now)) / 1000 : 0);
   },
   /**
+   * 自动计数间隔换算为毫秒（精确到 100ms 即 0.1 秒）：
+   *   intervalMs = Math.round(seconds * 10) * 100
+   * 范围 0.1 ~ 25 秒；取整数毫秒避免浮点误差累计。
+   */
+  _autoIntervalMs() {
+    const s = store.getSettings();
+    const raw = Number(s.autoCountInterval) || Number(this.data.autoInterval) || 1;
+    const sec = Math.min(25, Math.max(0.1, Math.round(raw * 10) / 10));
+    return Math.round(sec * 10) * 100;
+  },
+  /**
    * 自动计数补偿核心：后台/切回不依赖定时器已执行次数，
    * 以开启自动计数时锚点 autoStartBase 与墙钟差值重算应达总次数：
    *   expected = floor((runSec - autoStartBase) / interval)
@@ -803,9 +846,15 @@ Page({
     if (!e || e.kind !== 'affirm') return 0;
     if (!e.autoActive) return 0;
     if (!e.running && !allowStopped) return 0;
-    const s = store.getSettings();
-    // 间隔统一保留 1 位小数（0.1 秒最小单位），范围 0.1 ~ 25 秒
-    const intervalSec = Math.min(25, Math.max(0.1, Math.round((Number(s.autoCountInterval) || Number(this.data.autoInterval) || 1) * 10) / 10));
+    const intervalMs = this._autoIntervalMs();
+    if (e.autoIntervalMs !== intervalMs) {
+      // 间隔变更检定：弃用旧锚点，以当前运行秒重排节奏（等效清旧定时器后按新间隔重启）。
+      // 若不重排，旧 autoFired（如 1s 跑了 100 次）会让 expected 骤降到 10，n 恒为 0 → 长时间“瘫痪无反应”。
+      e.autoIntervalMs = intervalMs;
+      e.autoStartBase = this._autoRunSecs(e, now);
+      e.autoFired = 0;
+    }
+    const intervalSec = intervalMs / 1000;
     const runSec = Math.max(0, this._autoRunSecs(e, now) - (e.autoStartBase || 0));
     const expected = Math.floor(runSec / intervalSec);
     const n = Math.max(0, expected - (e.autoFired || 0));

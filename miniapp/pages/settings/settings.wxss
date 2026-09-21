@@ -101,18 +101,27 @@
 
 /* ---------- 自动计数间隔 ---------- */
 .s-inset {
+  position: relative;
+  z-index: 5; /* 抬高层级：间隔调节框不被下方开关行/底部通栏遮挡 */
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 16px;
-  padding: 12px;
-  margin: 6px 0 4px;
+  /* 上下留白更宽松：数值显示框、滑杆、说明文字之间不贴边 */
+  padding: 16px 16px calc(18px + env(safe-area-inset-bottom));
+  margin: 10px 0 14px;
+}
+/* 间隔滑杆：与数值框、说明文字拉开舒适间距 */
+.s-inset slider {
+  margin: 14px 0 10px;
 }
 .s-num {
   width: 72px; /* w-18 近似（数字输入） */
   background: var(--card-bg-strong);
   border: 1px solid var(--card-border);
   border-radius: 12px;
-  padding: 6px 8px;
+  padding: 8px 10px; /* 更大内边距，数值不贴边框 */
+  margin: 2px 0;
+  min-height: 34px;
   font-size: 14px;
   text-align: center;
   color: var(--ink);

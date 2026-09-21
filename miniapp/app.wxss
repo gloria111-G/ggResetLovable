@@ -343,15 +343,17 @@ switch .wx-switch-input { } /* 保留默认 */
 .overlay {
   position: fixed;
   left: 0; top: 0; right: 0; bottom: 0;
-  z-index: 60;
+  z-index: 900; /* 高层级：确保弹窗不被底部通栏/卡片等其它组件遮挡 */
   background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  /* 底部安全区适配：弹窗内容不被 iOS 底部横条遮挡 */
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
 }
 .dialog {
   position: relative;
+  z-index: 1;
   width: 100%;
   max-width: 512px; /* max-w-lg */
   background: var(--card-bg-strong);
@@ -359,6 +361,8 @@ switch .wx-switch-input { } /* 保留默认 */
   box-shadow: var(--card-shadow);
   border-radius: 32px;
   padding: 24px;
+  /* 底部额外留白：数值框 / 滑杆 / 关闭·确认按钮之间保持舒适间距 */
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
   max-height: 85vh;
   overflow-y: auto;
   color: var(--ink);
