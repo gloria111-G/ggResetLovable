@@ -151,6 +151,8 @@ Page({
     this._checkAffirmModeChange();
     this._refreshAfterReturn();
     this._restoreSession();
+    // 从设置页返回：按最新开关状态重建/停用自动计数定时器（重开开关后立即恢复生效）
+    this.syncAutoCountState();
     this._maybeSyncWheel();
   },
   onHide() {
@@ -737,6 +739,37 @@ Page({
 
   /* ================= 自动计数（时间戳差补偿，不依赖 setInterval 计数） ================= */
   /**
+   * 自动计数状态响应函数（唯一入口）—— 设置开关 / 主页面 onShow / 计时按钮三处均调用：
+   *   autoCount && isTiming 开启：先清除旧定时器句柄，再启动全新 ticker 并激活计数锚点；
+   *   autoCount 关闭          ：立即清除定时器并置空句柄，同时停用计数触发状态。
+   * 说明：计数触发条件为 autoOn && engine.autoActive，由共享 ticker(200ms) 按时间戳差驱动；
+   *       _startTicker 内部即「clearInterval 旧句柄 → setInterval 新句柄」，故重开开关时定时器必然重建。
+   */
+  syncAutoCountState() {
+    const on = !!store.getSettings().autoCountEnabled;
+    const e = this._engine;
+    const affirm = e && e.kind === 'affirm' && !e.finished ? e : null;
+    if (!on) {
+      // 关闭：清自动计数触发状态；无进行中计时则连同定时器句柄一并释放
+      this._stopAutoCount();
+      if (!e || !e.running) this._stopTicker();
+      return;
+    }
+    // 开启：先同步 UI 开关状态
+    if (this.data.autoOn !== true || this.data.autoEnabled !== true) {
+      this.setData({ autoOn: true, autoEnabled: true });
+    }
+    if (!affirm || !affirm.running) return; // 无引擎/暂停中：由 startAffirm / resumeAffirm 激活
+    if (!affirm.autoActive) {
+      // 以「当前已运行秒」为新锚点激活（与 resumeAffirm 口径一致，不补算开启前的历史，避免计数突增）
+      affirm.autoActive = true;
+      affirm.autoStartBase = this._autoRunSecs(affirm, Date.now());
+      affirm.autoFired = 0;
+    }
+    this._startTicker('affirm'); // 清旧建新：自动计数定时器随开关状态重建
+    this._saveAffirmSession(affirm);
+  },
+  /**
    * 停用自动计数（设置中关闭开关时调用）：
    * 显式清空引擎触发锚点并复位 UI 开关 —— 计数触发条件 autoOn && autoActive
    * 随即双双失效，等效于 clearInterval 销毁自动计数定时器；
@@ -748,6 +781,8 @@ Page({
       e.autoActive = false;
       e.autoFired = 0;
       e.autoStartBase = 0;
+      // 同步清空持久化会话中的旧锚点，避免重开开关后按旧锚点一次性补算关闭期间的计数
+      this._saveAffirmSession(e);
     }
     if (this.data.autoOn || this.data.autoEnabled) {
       this.setData({ autoOn: false, autoEnabled: false });
@@ -1096,11 +1131,15 @@ Page({
       else if (d.paused) this.resumeAffirm();
       else this.startAffirm();
     }
+    // 开始 / 暂停 / 恢复：按最新开关与计时状态同步自动计数定时器
+    this.syncAutoCountState();
   },
   timerEnd() {
     if (!this._engine) return;
     if (this.data.tab === 'breath') this.breathDone();
     else this.finishAffirmNow();
+    // 终止：引擎已释放，同步复位自动计数状态与定时器句柄
+    this.syncAutoCountState();
   },
   goHome() {
     wx.navigateBack({ delta: 1, fail: () => wx.reLaunch({ url: '/pages/index/index' }) });

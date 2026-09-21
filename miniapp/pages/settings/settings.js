@@ -151,12 +151,29 @@ Page({
   /* ============ 通用 switch / seg ============ */
   onSwitch(e) {
     const field = e.currentTarget.dataset.field;
-    this._patch({ [field]: e.detail.value });
+    this._patch({ [field]: e.detail.value }); // 先落盘 Storage，保证跨页读取到最新值
     if (field === 'sound') {
       this.setData({ sound: e.detail.value });
       if (e.detail.value) audio.playTick(false);
     } else {
       this._load();
+    }
+    // 自动计数开关：立即驱动 Focus 页重建/停用自动计数定时器（无需等返回主界面）
+    if (field === 'autoCountEnabled') this._syncFocusAutoCount();
+  },
+  /** 通知页面栈中的 Focus 页立即响应自动计数开关变更（状态响应函数统一入口） */
+  _syncFocusAutoCount() {
+    try {
+      const pages = getCurrentPages() || [];
+      for (let i = pages.length - 1; i >= 0; i--) {
+        const p = pages[i];
+        if (p && (p.route || '').indexOf('pages/focus/focus') >= 0 && typeof p.syncAutoCountState === 'function') {
+          p.syncAutoCountState();
+          return;
+        }
+      }
+    } catch (e) {
+      /* noop：页面栈异常时忽略，返回主界面 onShow 仍会兜底同步 */
     }
   },
   segTap(e) {
