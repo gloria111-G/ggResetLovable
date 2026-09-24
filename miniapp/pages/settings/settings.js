@@ -250,10 +250,22 @@ Page({
   },
   doImport() {
     let data = null;
+    // ---------- 容错修复：Web 端导出的 JSON 可能缺失首尾括号 ----------
+    let cleanStr = (this.data.importText || '').trim(); // 1. 自动去除前后的空格和换行
+    if (!cleanStr) cleanStr = '{}';
+    // 2. 开头缺少 {：自动补上
+    if (!cleanStr.startsWith('{')) {
+      cleanStr = '{' + cleanStr;
+    }
+    // 3. 结尾缺少 }：自动补上
+    if (!cleanStr.endsWith('}')) {
+      cleanStr = cleanStr + '}';
+    }
+    // 4. 解析；仍失败则提示真正的格式错误
     try {
-      data = JSON.parse(this.data.importText || '{}');
+      data = JSON.parse(cleanStr);
     } catch (err) {
-      wx.showToast({ title: 'JSON 解析失败', icon: 'none' });
+      wx.showToast({ title: 'JSON 解析失败，请检查内容是否完整', icon: 'none', duration: 3000 });
       return;
     }
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
