@@ -35,7 +35,16 @@ import { CSS } from "@dnd-kit/utilities";
 
 
 export const Route = createFileRoute("/manifest")({
-  head: () => ({ meta: [{ title: "目标列表 · GG RESET" }] }),
+  head: () => ({
+    meta: [
+      { title: "目标列表 · GG RESET" },
+      { name: "description", content: "记录目标、管理肯定语与分类，并查看每条肯定语的累计次数。" },
+      { property: "og:title", content: "目标列表 · GG RESET" },
+      { property: "og:description", content: "记录目标、管理肯定语与分类，并查看每条肯定语的累计次数。" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: ManifestPage,
 });
 

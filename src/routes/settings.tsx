@@ -21,7 +21,16 @@ import {
   ChevronUp,
 } from "lucide-react";
 export const Route = createFileRoute("/settings")({
-  head: () => ({ meta: [{ title: "设置 · GG RESET" }] }),
+  head: () => ({
+    meta: [
+      { title: "设置 · GG RESET" },
+      { name: "description", content: "调整 GG RESET 的专注、声音、外观与浏览器本地数据设置。" },
+      { property: "og:title", content: "设置 · GG RESET" },
+      { property: "og:description", content: "调整 GG RESET 的专注、声音、外观与浏览器本地数据设置。" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: SettingsPage,
 });
 
