@@ -220,7 +220,8 @@
       <view class="dialog-close" bindtap="closeImport">✕</view>
       <view class="serif ft-lg mb3">导入数据</view>
       <view class="ft-xs op-60 lh-relaxed mb4">
-        先将另一台设备导出的 JSON 复制到剪贴板，再粘贴到下方输入框。
+        方式一：将 JSON 复制到剪贴板后粘贴到下方输入框，点击「粘贴导入」。
+        方式二（推荐大文件）：把 .json 文件发到微信「文件传输助手」，点击下方「从文件导入」。
         导入将覆盖当前本地同名数据，请谨慎操作。
       </view>
       <textarea
@@ -233,7 +234,10 @@
       />
       <view class="row gap2 mt4">
         <view class="btn btn-ghost flex-1" hover-class="pressed" bindtap="closeImport">取消</view>
-        <view class="btn btn-primary flex-1" hover-class="pressed" bindtap="doImport">导入</view>
+        <view class="btn btn-primary flex-1" hover-class="pressed" bindtap="doImport">粘贴导入</view>
+      </view>
+      <view class="row gap2 mt3">
+        <view class="btn btn-ghost flex-1" hover-class="pressed" bindtap="doImportFromFile">从文件导入 JSON（适合大文件）</view>
       </view>
     </view>
   </view>

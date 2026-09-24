@@ -42,4 +42,44 @@ function heatCells(nDays) {
   return cells;
 }
 
-module.exports = { pad, fmtClock, fmtMin, dateKey, heatCells };
+/**
+ * 宽松修复 Web 端导出 / 复制粘贴过程中损坏的 JSON 字符串。
+ * 处理场景：
+ *   1. 前后空格、BOM、零宽字符；
+ *   2. 缺失最外层 {}；
+ *   3. 字符串内出现未转义的换行/回车/制表符（复制大文本时常见）；
+ *   4. 对象/数组尾逗号；
+ *   5. 中文引号、智能引号替换成标准英文引号。
+ * 注意：本函数只做「机械修复」，无法处理结构性缺损（如缺半边引号）。
+ */
+function repairJsonString(str) {
+  if (!str || typeof str !== 'string') return '{}';
+  let s = str.replace(/^\uFEFF/, '').trim();
+  if (!s) return '{}';
+
+  // 补齐外层花括号
+  if (!s.startsWith('{')) s = '{' + s;
+  if (!s.endsWith('}')) s = s + '}';
+
+  // 中文/智能引号 → 英文引号
+  s = s
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'");
+
+  // 去掉对象/数组尾逗号
+  s = s.replace(/,\s*([\]\}])/g, '$1');
+
+  // 修复字符串内未转义的换行/回车/制表符（仅处理双引号字符串内部）
+  // 匹配规则：从 " 开始，到下一个未转义的 " 结束；中间允许 \" 或 \\
+  s = s.replace(/"(?:[^"\\]|\\.)*"/g, (match) => {
+    return match
+      .replace(/\r\n/g, '\\n')
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r')
+      .replace(/\t/g, '\\t');
+  });
+
+  return s;
+}
+
+module.exports = { pad, fmtClock, fmtMin, dateKey, heatCells, repairJsonString };

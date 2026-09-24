@@ -3,6 +3,7 @@
  */
 const store = require('../../utils/storage');
 const audio = require('../../utils/audio');
+const util = require('../../utils/util');
 const GUIDE = require('../../utils/guide');
 
 const BG = { light: '/images/ocean-bg.jpg', dark: '/images/ocean-bg-dark.jpg' };
@@ -249,23 +250,57 @@ Page({
     this.setData({ importText: e.detail.value });
   },
   doImport() {
+    this._importText(this.data.importText);
+  },
+  /**
+   * 从聊天文件或本地文件导入 JSON：绕过剪贴板/textarea 的 1MB 左右实际限制，
+   * 适合 Lovable 导出的大型 JSON（数百万字符）。
+   */
+  doImportFromFile() {
+    wx.chooseMessageFile({
+      type: 'file',
+      extension: ['json'],
+      count: 1,
+      success: (res) => {
+        const path = res.tempFiles && res.tempFiles[0] && res.tempFiles[0].path;
+        if (!path) {
+          wx.showToast({ title: '未获取到文件路径', icon: 'none' });
+          return;
+        }
+        wx.getFileSystemManager().readFile({
+          filePath: path,
+          encoding: 'utf8',
+          success: (readRes) => {
+            this._importText(String(readRes.data || ''));
+          },
+          fail: (err) => {
+            console.error('[import] readFile fail', err);
+            wx.showToast({ title: '文件读取失败', icon: 'none' });
+          },
+        });
+      },
+      fail: (err) => {
+        if (err.errMsg && err.errMsg.indexOf('cancel') > -1) return;
+        console.error('[import] chooseMessageFile fail', err);
+        wx.showToast({ title: '选择文件失败', icon: 'none' });
+      },
+    });
+  },
+  /**
+   * 通用导入：先做宽松 JSON 修复，再解析，失败时给出具体位置提示。
+   */
+  _importText(rawText) {
     let data = null;
-    // ---------- 容错修复：Web 端导出的 JSON 可能缺失首尾括号 ----------
-    let cleanStr = (this.data.importText || '').trim(); // 1. 自动去除前后的空格和换行
-    if (!cleanStr) cleanStr = '{}';
-    // 2. 开头缺少 {：自动补上
-    if (!cleanStr.startsWith('{')) {
-      cleanStr = '{' + cleanStr;
-    }
-    // 3. 结尾缺少 }：自动补上
-    if (!cleanStr.endsWith('}')) {
-      cleanStr = cleanStr + '}';
-    }
-    // 4. 解析；仍失败则提示真正的格式错误
+    let cleanStr = util.repairJsonString(rawText);
     try {
       data = JSON.parse(cleanStr);
     } catch (err) {
-      wx.showToast({ title: 'JSON 解析失败，请检查内容是否完整', icon: 'none', duration: 3000 });
+      console.error('[import] JSON parse fail', err, '\n--- snippet near error ---\n', cleanStr.slice(0, 300));
+      wx.showModal({
+        title: 'JSON 解析失败',
+        content: '请检查：① 是否只复制了文件的一部分；② 字符串里是否有未转义的换行；③ 数据量较大时请使用「从文件导入」。',
+        showCancel: false,
+      });
       return;
     }
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
@@ -273,7 +308,7 @@ Page({
       return;
     }
     store.importAll(data);
-    this.setData({ importVisible: false });
+    this.setData({ importVisible: false, importText: '' });
     this._load();
     // 白噪音仅在专注页生效：导入后不在此页面播放；用户进入专注页时由 _syncNoisePlayback 自动续上
     wx.showToast({ title: '导入成功', icon: 'success' });
