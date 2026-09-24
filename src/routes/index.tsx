@@ -3,12 +3,19 @@ import { useState } from "react";
 import { Sparkles, ListChecks, BarChart3, Settings as SettingsIcon } from "lucide-react";
 import { Disclaimer } from "@/components/AppShell";
 import { UsageGuideModal } from "@/components/UsageGuide";
-import { LoginModal } from "@/components/LoginModal";
 import { useApp } from "@/lib/app-context";
-import { useAuth } from "@/lib/auth-context";
-import { maskOpenId } from "@/lib/wx-login";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "GG RESET · 正念专注与肯定语" },
+      { name: "description", content: "GG RESET 提供肯定语计数、呼吸调整、目标记录与专注数据统计。" },
+      { property: "og:title", content: "GG RESET · 正念专注与肯定语" },
+      { property: "og:description", content: "GG RESET 提供肯定语计数、呼吸调整、目标记录与专注数据统计。" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Home,
 });
 
@@ -21,35 +28,17 @@ const tiles = [
 
 function Home() {
   const { settings } = useApp();
-  const { user, ready } = useAuth();
   const [showGuide, setShowGuide] = useState(false);
-  const [showLogin, setShowLogin] = useState(false);
   return (
     <div className="min-h-screen flex flex-col">
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-16">
         <div className="text-center mb-12">
           <p className="text-xs tracking-[0.4em] opacity-60 mb-3">FOCUS · COUNTER · TIMER</p>
           <h1 className="font-display text-6xl md:text-7xl tracking-tight">GG RESET</h1>
-          {ready && !user && (
-            <button
-              onClick={() => setShowLogin(true)}
-              className="mt-4 text-xs opacity-80 hover:opacity-100 underline underline-offset-4 transition block mx-auto"
-            >
-              微信一键快捷登录 / 进入应用
-            </button>
-          )}
-          {ready && user && (
-            <p className="mt-4 text-xs opacity-70">
-              已登录 · {user.nickname}
-              {user.openid && (
-                <span className="font-num"> · {maskOpenId(user.openid)}</span>
-              )}
-            </p>
-          )}
           {settings.homeGuideShortcut && (
             <button
               onClick={() => setShowGuide(true)}
-              className="mt-2 text-xs opacity-70 hover:opacity-100 underline underline-offset-4 transition"
+              className="mt-4 text-xs opacity-70 hover:opacity-100 underline underline-offset-4 transition"
             >
               第一次来？点击查看使用指南
             </button>
@@ -74,7 +63,6 @@ function Home() {
       </main>
       <Disclaimer />
       {showGuide && <UsageGuideModal onClose={() => setShowGuide(false)} />}
-      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </div>
   );
 }

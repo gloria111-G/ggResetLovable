@@ -5,7 +5,16 @@ import { useLocal, type FocusLog } from "@/lib/storage";
 import { X } from "lucide-react";
 
 export const Route = createFileRoute("/data")({
-  head: () => ({ meta: [{ title: "数据中心 · GG RESET" }] }),
+  head: () => ({
+    meta: [
+      { title: "数据中心 · GG RESET" },
+      { name: "description", content: "查看肯定语计数、专注时间、主题分布与呼吸调整记录。" },
+      { property: "og:title", content: "数据中心 · GG RESET" },
+      { property: "og:description", content: "查看肯定语计数、专注时间、主题分布与呼吸调整记录。" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: DataPage,
 });
 

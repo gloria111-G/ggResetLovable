@@ -7,12 +7,12 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { X } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppProvider } from "../lib/app-context";
-import { AuthProvider } from "../lib/auth-context";
 
 function NotFoundComponent() {
   return (
@@ -121,13 +121,48 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const [showMiniProgramNotice, setShowMiniProgramNotice] = useState(true);
 
   return (
     <QueryClientProvider client={queryClient}>
       <AppProvider>
-        <AuthProvider>
-          <Outlet />
-        </AuthProvider>
+        <Outlet />
+        {showMiniProgramNotice && (
+          <div
+            className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-4 backdrop-blur-md"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mini-program-notice-title"
+            onClick={() => setShowMiniProgramNotice(false)}
+          >
+            <div
+              className="glass-strong relative w-full max-w-sm rounded-3xl p-7 text-center"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setShowMiniProgramNotice(false)}
+                className="glass glass-hover absolute right-3 top-3 flex size-9 items-center justify-center rounded-full"
+                aria-label="关闭"
+              >
+                <X className="size-4" />
+              </button>
+              <h2 id="mini-program-notice-title" className="font-display mb-4 text-2xl">
+                GG RESET
+              </h2>
+              <p className="text-sm leading-7 opacity-85">
+                GG RESET已上线小程序，后续更新不会同步到此网页，欢迎大家移步小程序使用~
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowMiniProgramNotice(false)}
+                className="glass-strong selected-strong mt-6 w-full rounded-2xl py-3 text-sm font-medium"
+              >
+                知道了
+              </button>
+            </div>
+          </div>
+        )}
       </AppProvider>
     </QueryClientProvider>
   );

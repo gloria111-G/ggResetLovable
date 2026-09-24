@@ -46,7 +46,16 @@ function WhiteNoiseSelector() {
 }
 
 export const Route = createFileRoute("/focus")({
-  head: () => ({ meta: [{ title: "进入专注 · GG RESET" }] }),
+  head: () => ({
+    meta: [
+      { title: "进入专注 · GG RESET" },
+      { name: "description", content: "使用肯定语计数、独立计时和呼吸调整进行专注练习。" },
+      { property: "og:title", content: "进入专注 · GG RESET" },
+      { property: "og:description", content: "使用肯定语计数、独立计时和呼吸调整进行专注练习。" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: FocusPage,
 });
 

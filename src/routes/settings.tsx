@@ -21,7 +21,16 @@ import {
   ChevronUp,
 } from "lucide-react";
 export const Route = createFileRoute("/settings")({
-  head: () => ({ meta: [{ title: "设置 · GG RESET" }] }),
+  head: () => ({
+    meta: [
+      { title: "设置 · GG RESET" },
+      { name: "description", content: "调整 GG RESET 的专注、声音、外观与浏览器本地数据设置。" },
+      { property: "og:title", content: "设置 · GG RESET" },
+      { property: "og:description", content: "调整 GG RESET 的专注、声音、外观与浏览器本地数据设置。" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: SettingsPage,
 });
 
@@ -366,10 +375,8 @@ function SettingsPage() {
             <h3 className="font-display text-xl mb-4">更新日志</h3>
             <div className="space-y-4 text-sm leading-relaxed">
               <div>
-                <p className="font-medium mb-1">2027 / 7 / 6</p>
-                <p className="opacity-85">
-                  更新账号登录系统和自动备份云端功能。
-                </p>
+                <p className="font-medium mb-1">2026 / 9</p>
+                <p className="opacity-85">GG RESET微信小程序上线</p>
               </div>
               <div>
                 <p className="font-medium mb-1">2026 / 7</p>
